@@ -8,6 +8,7 @@ import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.VpnService
 import android.os.Build
+import android.os.ParcelFileDescriptor
 import android.system.OsConstants
 import androidx.core.app.NotificationCompat
 import com.cruciblelab.trafficlogger.MainActivity
@@ -32,7 +33,6 @@ import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.Inet4Address
 import java.net.InetSocketAddress
-import java.net.ParcelFileDescriptor
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
