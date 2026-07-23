@@ -1,45 +1,40 @@
 package com.cruciblelab.trafficlogger.ui.theme
 
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
-
-private val DarkColors = darkColorScheme(
-    primary = TrafficGreen,
-    secondary = TrafficGreenDark,
-    background = TrafficBackground,
-    surface = TrafficSurface
-)
+import androidx.compose.ui.graphics.Color
 
 private val LightColors = lightColorScheme(
-    primary = TrafficGreenDark,
-    secondary = TrafficGreen,
+    primary = AccentViolet,
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFEDEBFC),
+    onPrimaryContainer = AccentVioletDark,
+    secondary = AccentMint,
+    onSecondary = Color.White,
+    background = BackgroundOffWhite,
+    onBackground = TextPrimary,
+    surface = SurfaceWhite,
+    onSurface = TextPrimary,
+    surfaceVariant = SurfaceMuted,
+    onSurfaceVariant = TextSecondary,
+    outline = OutlineSoft,
+    error = AccentCoral,
 )
 
+/**
+ * Always renders a clean, modern light/white theme regardless of system
+ * dark-mode or dynamic color, per product direction: a bright, confident
+ * UI rather than the previous dark/dynamic scheme.
+ */
 @Composable
 fun NetworkTrafficLoggerTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColors
-        else -> LightColors
-    }
-
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = LightColors,
         typography = TrafficTypography,
+        shapes = TrafficShapes,
         content = content
     )
 }

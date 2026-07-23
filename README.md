@@ -20,6 +20,16 @@ Kotlin + Jetpack Compose ile yazılmıştır.
 - Ayarlar ekranında kayıt saklama süresi (1/7/30 gün) seçilebilir; eski
   kayıtlar arka planda periyodik olarak temizlenir.
 
+## IP bilgisi (ASN / organizasyon / ülke)
+
+Liste ve detay ekranlarında her hedef IP için ASN/organizasyon adı ve ülke
+bayrağı gösterilir. Bunlar `https://ipwho.is` üzerinden (anahtarsız, ücretsiz)
+tek IP'lik sorgularla anlık olarak çekilir ve cihazda Room'da 30 gün önbelleğe
+alınır; aynı IP tekrar sorgulanmaz. Özel/yerel IP aralıkları (10.x, 192.168.x,
+172.16-31.x, 127.x, CGNAT 100.64/10) hiç ağa çıkmadan "Yerel ağ" olarak
+işaretlenir. Sorgu isteği başarısız olursa (İnternet yok, servis yanıt
+vermiyor) satırda sadece IP/domain gösterilmeye devam edilir.
+
 ## Kısıtlar
 
 - VPN API'si aktifken cihazdaki başka bir gerçek VPN uygulaması aynı anda

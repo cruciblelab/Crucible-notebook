@@ -23,12 +23,15 @@ fun TrafficNavGraph(viewModel: MainViewModel, onToggleVpn: () -> Unit) {
     val entries by viewModel.entries.collectAsState()
     val vpnRunning by viewModel.vpnRunning.collectAsState()
     val retentionDays by viewModel.retentionDays.collectAsState()
+    val ipInfoMap by viewModel.ipInfoMap.collectAsState()
 
     NavHost(navController = navController, startDestination = Routes.LIST) {
         composable(Routes.LIST) {
             TrafficListScreen(
                 entries = entries,
                 vpnRunning = vpnRunning,
+                ipInfoMap = ipInfoMap,
+                onRequestIpInfo = viewModel::requestIpInfo,
                 onToggleVpn = onToggleVpn,
                 onEntryClick = { entry -> navController.navigate(Routes.detail(entry.id)) },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) }
@@ -44,6 +47,8 @@ fun TrafficNavGraph(viewModel: MainViewModel, onToggleVpn: () -> Unit) {
             TrafficDetailScreen(
                 entry = entry,
                 history = history,
+                ipInfo = ipInfoMap[entry.destIp],
+                onRequestIpInfo = viewModel::requestIpInfo,
                 onBack = { navController.popBackStack() }
             )
         }

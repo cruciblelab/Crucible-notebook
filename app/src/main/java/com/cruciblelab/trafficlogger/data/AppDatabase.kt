@@ -6,11 +6,16 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
-@Database(entities = [TrafficEntry::class], version = 1, exportSchema = false)
+@Database(
+    entities = [TrafficEntry::class, IpInfoCache::class],
+    version = 2,
+    exportSchema = false
+)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun trafficDao(): TrafficDao
+    abstract fun ipInfoDao(): IpInfoDao
 
     companion object {
         @Volatile
@@ -22,7 +27,10 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "traffic_logger.db"
-                ).build().also { instance = it }
+                )
+                    // Pre-1.0 app: no need to migrate existing local caches.
+                    .fallbackToDestructiveMigration()
+                    .build().also { instance = it }
             }
         }
     }
