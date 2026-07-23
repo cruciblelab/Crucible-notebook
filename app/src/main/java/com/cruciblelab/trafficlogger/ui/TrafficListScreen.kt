@@ -101,7 +101,7 @@ fun TrafficListScreen(
                 Column(
                     modifier = Modifier.fillMaxSize().padding(32.dp),
                 ) {
-                    Text("Henüz kayıt yok. İzlemeyi başlatınca DNS sorguları burada listelenecek.")
+                    Text("Henüz kayıt yok. İzlemeyi başlatınca tüm bağlantılar burada listelenecek.")
                 }
             } else {
                 LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {

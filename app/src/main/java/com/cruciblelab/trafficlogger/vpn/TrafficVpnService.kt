@@ -5,18 +5,14 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
-import android.net.ConnectivityManager
+import android.content.pm.PackageManager
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
-import android.system.OsConstants
 import androidx.core.app.NotificationCompat
 import com.cruciblelab.trafficlogger.MainActivity
 import com.cruciblelab.trafficlogger.R
 import com.cruciblelab.trafficlogger.TrafficLoggerApp
-import com.cruciblelab.trafficlogger.data.Direction
-import com.cruciblelab.trafficlogger.data.Protocol
-import com.cruciblelab.trafficlogger.data.TrafficEntry
 import com.cruciblelab.trafficlogger.util.AppInfoResolver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,19 +25,19 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.net.DatagramPacket
-import java.net.DatagramSocket
-import java.net.Inet4Address
-import java.net.InetSocketAddress
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 /**
- * Local, non-routing VPN: it only intercepts UDP/53 traffic (by routing solely the
- * device's current DNS server addresses into the TUN), reads the DNS query, logs
- * which app/domain it belongs to, then relays the query to the real DNS server over
- * a protected socket and writes the real reply back into the TUN so name resolution
- * keeps working normally. Nothing else is captured or proxied in this first stage.
+ * Full-traffic local VPN: every packet the device sends is routed into the TUN (both
+ * IPv4 UDP and TCP - not just DNS). Nothing is exfiltrated anywhere; every connection is
+ * relayed right back out over a *protected* socket to its real destination (protected
+ * sockets bypass the VPN so we don't loop traffic back into ourselves), so normal
+ * connectivity keeps working exactly as before. Along the way, each connection is logged:
+ * which app owns it (via ConnectionOwnerUid / package-for-uid), the destination IP:port,
+ * the domain if it was recently resolved via DNS, and how many bytes went up/down.
+ * Payload content itself is never inspected or stored beyond the DNS question/answer
+ * names needed to label a destination IP with a domain.
  */
 class TrafficVpnService : VpnService() {
 
@@ -49,8 +45,7 @@ class TrafficVpnService : VpnService() {
         const val ACTION_STOP = "com.cruciblelab.trafficlogger.vpn.STOP"
         private const val NOTIFICATION_ID = 42
         private const val CHANNEL_ID = "traffic_monitor"
-        private const val DNS_FORWARD_TIMEOUT_MS = 5000
-        private val FALLBACK_DNS_SERVERS = listOf("8.8.8.8", "1.1.1.1")
+        private const val SESSION_SWEEP_INTERVAL_MS = 15_000L
 
         private val _isRunning = MutableStateFlow(false)
         val isRunning = _isRunning.asStateFlow()
@@ -62,6 +57,10 @@ class TrafficVpnService : VpnService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var appInfoResolver: AppInfoResolver
+    private lateinit var relayContext: RelayContext
+    private lateinit var udpNat: UdpNat
+    private lateinit var tcpNat: TcpNat
+    private val dnsCache = DnsCache()
 
     override fun onCreate() {
         super.onCreate()
@@ -93,14 +92,18 @@ class TrafficVpnService : VpnService() {
 
         startForeground(NOTIFICATION_ID, buildNotification())
 
-        val dnsServers = activeDnsServers().ifEmpty { FALLBACK_DNS_SERVERS }
-
         val builder = Builder()
             .setSession(getString(R.string.app_name))
             .addAddress("10.0.0.2", 32)
+            .addRoute("0.0.0.0", 0) // route ALL IPv4 traffic into the tunnel, not just DNS
             .setMtu(1500)
             .setBlocking(true)
-        dnsServers.forEach { server -> builder.addRoute(server, 32) }
+
+        try {
+            builder.addDisallowedApplication(packageName)
+        } catch (e: PackageManager.NameNotFoundException) {
+            // shouldn't happen for our own package, but don't let it block startup
+        }
 
         val establishedInterface = builder.establish()
         if (establishedInterface == null) {
@@ -111,9 +114,25 @@ class TrafficVpnService : VpnService() {
         running = true
         _isRunning.value = true
 
-        workerThread = thread(name = "TrafficVpnWorker", start = true) { runPacketLoop(establishedInterface) }
+        val repository = (application as TrafficLoggerApp).trafficRepository
+        val output = FileOutputStream(establishedInterface.fileDescriptor)
+        relayContext = RelayContext(
+            vpnService = this,
+            repository = repository,
+            appInfoResolver = appInfoResolver,
+            dnsCache = dnsCache,
+            scope = serviceScope,
+            output = output
+        )
+        udpNat = UdpNat(relayContext)
+        tcpNat = TcpNat(relayContext)
+
+        workerThread = thread(name = "TrafficVpnWorker", start = true) {
+            runPacketLoop(establishedInterface, output)
+        }
 
         serviceScope.launch { retentionLoop() }
+        serviceScope.launch { sessionSweepLoop() }
     }
 
     private fun stopVpn() {
@@ -121,6 +140,8 @@ class TrafficVpnService : VpnService() {
         _isRunning.value = false
         workerThread?.interrupt()
         workerThread = null
+        if (::udpNat.isInitialized) udpNat.closeAll()
+        if (::tcpNat.isInitialized) tcpNat.closeAll()
         try {
             vpnInterface?.close()
         } catch (e: Exception) {
@@ -141,9 +162,16 @@ class TrafficVpnService : VpnService() {
         }
     }
 
-    private fun runPacketLoop(pfd: ParcelFileDescriptor) {
+    private suspend fun sessionSweepLoop() {
+        while (running) {
+            delay(SESSION_SWEEP_INTERVAL_MS)
+            udpNat.sweepIdleSessions()
+            tcpNat.sweepIdleSessions()
+        }
+    }
+
+    private fun runPacketLoop(pfd: ParcelFileDescriptor, output: FileOutputStream) {
         val input = FileInputStream(pfd.fileDescriptor)
-        val output = FileOutputStream(pfd.fileDescriptor)
         val buffer = ByteArray(32767)
 
         while (running) {
@@ -155,96 +183,23 @@ class TrafficVpnService : VpnService() {
             if (length <= 0) continue
 
             val packetCopy = buffer.copyOf(length)
-            serviceScope.launch { handleOutgoingPacket(packetCopy, output) }
+            dispatchPacket(packetCopy, output)
         }
     }
 
-    private suspend fun handleOutgoingPacket(packet: ByteArray, output: FileOutputStream) {
-        val udp = PacketUtils.parseIpv4Udp(packet, packet.size) ?: return
-        if (udp.destPort != 53) return
-        if (!DnsMessage.isQuery(udp.payload)) return
-        val domain = DnsMessage.parseQuestionName(udp.payload) ?: return
-
-        val uid = resolveOwnerUid(udp.sourceAddress, udp.sourcePort, udp.destAddress, udp.destPort)
-        val app = appInfoResolver.resolve(uid)
-        val repository = (application as TrafficLoggerApp).trafficRepository
-
-        val entry = TrafficEntry(
-            appPackageName = app.packageName,
-            appLabel = app.label,
-            domain = domain,
-            destIp = udp.destAddress.hostAddress ?: "",
-            destPort = udp.destPort,
-            protocol = Protocol.UDP,
-            bytesUp = packet.size.toLong(),
-            bytesDown = 0,
-            timestamp = System.currentTimeMillis(),
-            direction = Direction.OUT
-        )
-        val entryId = repository.insert(entry)
-
-        val response = forwardDnsQuery(udp.destAddress, udp.destPort, udp.payload) ?: return
-        repository.update(entry.copy(id = entryId, bytesDown = response.size.toLong()))
-
-        val responsePacket = PacketUtils.buildIpv4UdpPacket(
-            srcAddress = udp.destAddress,
-            srcPort = udp.destPort,
-            dstAddress = udp.sourceAddress,
-            dstPort = udp.sourcePort,
-            payload = response
-        )
-        synchronized(output) {
-            try {
-                output.write(responsePacket)
-            } catch (e: Exception) {
-                // TUN closed mid-flight (VPN stopped); nothing to recover.
+    private fun dispatchPacket(packet: ByteArray, output: FileOutputStream) {
+        val header = PacketUtils.parseIpv4Header(packet, packet.size) ?: return
+        when (header.protocol) {
+            PROTO_UDP -> {
+                val udp = PacketUtils.parseUdp(packet, packet.size, header) ?: return
+                udpNat.handleClientPacket(udp)
             }
-        }
-    }
-
-    private fun forwardDnsQuery(serverAddress: Inet4Address, serverPort: Int, query: ByteArray): ByteArray? {
-        return try {
-            DatagramSocket().use { socket ->
-                protect(socket)
-                socket.soTimeout = DNS_FORWARD_TIMEOUT_MS
-                socket.send(DatagramPacket(query, query.size, serverAddress, serverPort))
-
-                val responseBuffer = ByteArray(4096)
-                val responsePacket = DatagramPacket(responseBuffer, responseBuffer.size)
-                socket.receive(responsePacket)
-                responseBuffer.copyOf(responsePacket.length)
+            PROTO_TCP -> {
+                val tcp = PacketUtils.parseTcp(packet, packet.size, header) ?: return
+                tcpNat.handleClientSegment(tcp)
             }
-        } catch (e: Exception) {
-            null
+            else -> Unit // other protocols (ICMP etc.) aren't relayed in this stage
         }
-    }
-
-    private fun resolveOwnerUid(
-        srcAddress: Inet4Address,
-        srcPort: Int,
-        dstAddress: Inet4Address,
-        dstPort: Int
-    ): Int {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return -1
-        return try {
-            val connectivityManager = getSystemService(ConnectivityManager::class.java)
-            connectivityManager.getConnectionOwnerUid(
-                OsConstants.IPPROTO_UDP,
-                InetSocketAddress(srcAddress, srcPort),
-                InetSocketAddress(dstAddress, dstPort)
-            )
-        } catch (e: Exception) {
-            -1
-        }
-    }
-
-    private fun activeDnsServers(): List<String> {
-        val connectivityManager = getSystemService(ConnectivityManager::class.java) ?: return emptyList()
-        val network = connectivityManager.activeNetwork ?: return emptyList()
-        val linkProperties = connectivityManager.getLinkProperties(network) ?: return emptyList()
-        return linkProperties.dnsServers
-            .filterIsInstance<Inet4Address>()
-            .mapNotNull { it.hostAddress }
     }
 
     private fun buildNotification(): Notification {
