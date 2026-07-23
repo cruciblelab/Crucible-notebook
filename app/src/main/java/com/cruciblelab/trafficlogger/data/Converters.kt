@@ -14,4 +14,10 @@ class Converters {
 
     @TypeConverter
     fun toDirection(value: String): Direction = Direction.valueOf(value)
+
+    @TypeConverter
+    fun fromRuleType(value: RuleType): String = value.name
+
+    @TypeConverter
+    fun toRuleType(value: String): RuleType = RuleType.valueOf(value)
 }

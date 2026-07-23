@@ -20,5 +20,7 @@ data class TrafficEntry(
     val bytesUp: Long,
     val bytesDown: Long,
     val timestamp: Long,
-    val direction: Direction
+    val direction: Direction,
+    /** true if this connection was refused because it matched a blacklist rule. */
+    val blocked: Boolean = false
 )

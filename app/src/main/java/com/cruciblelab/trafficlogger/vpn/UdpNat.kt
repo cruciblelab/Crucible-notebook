@@ -3,6 +3,7 @@ package com.cruciblelab.trafficlogger.vpn
 import com.cruciblelab.trafficlogger.data.Direction
 import com.cruciblelab.trafficlogger.data.Protocol
 import com.cruciblelab.trafficlogger.data.TrafficEntry
+import com.cruciblelab.trafficlogger.util.ResolvedApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.io.FileOutputStream
@@ -55,6 +56,7 @@ class UdpNat(private val context: RelayContext) {
     ) {
         @Volatile var lastActivity = System.currentTimeMillis()
         @Volatile private var closed = false
+        @Volatile private var blocked = false
         private var socket: DatagramSocket? = null
         private var entryId: Long = -1
         private var bytesUp = 0L
@@ -66,6 +68,16 @@ class UdpNat(private val context: RelayContext) {
         fun start() {
             uid = context.resolveOwnerUid(PROTO_UDP, clientAddress, clientPort, remoteAddress, remotePort)
             domain = context.dnsCache.lookup(remoteAddress)
+            val app = context.appInfoResolver.resolve(uid)
+
+            // Non-DNS destinations already have a domain if this app resolved it earlier,
+            // so we can decide up front whether to even open a socket. DNS queries (port
+            // 53) are checked per-query in sendToRemote once the question name is known.
+            if (remotePort != 53 && context.isBlocked(app.packageName, domain, remoteAddress.hostAddress ?: "")) {
+                blocked = true
+                logEntry(app)
+                return
+            }
 
             val newSocket = try {
                 DatagramSocket().also { context.protectDatagram(it) }
@@ -75,7 +87,12 @@ class UdpNat(private val context: RelayContext) {
             }
             socket = newSocket
 
-            val app = context.appInfoResolver.resolve(uid)
+            logEntry(app)
+
+            readerThread = thread(name = "UdpNat-$remotePort", start = true) { readLoop(newSocket) }
+        }
+
+        private fun logEntry(app: ResolvedApp) {
             context.scope.launch {
                 entryId = context.repository.insert(
                     TrafficEntry(
@@ -88,24 +105,35 @@ class UdpNat(private val context: RelayContext) {
                         bytesUp = 0,
                         bytesDown = 0,
                         timestamp = System.currentTimeMillis(),
-                        direction = Direction.OUT
+                        direction = Direction.OUT,
+                        blocked = blocked
                     )
                 )
             }
-
-            readerThread = thread(name = "UdpNat-$remotePort", start = true) { readLoop(newSocket) }
         }
 
         fun sendToRemote(payload: ByteArray) {
-            val s = socket ?: return
             lastActivity = System.currentTimeMillis()
 
             if (remotePort == 53 && DnsMessage.isQuery(payload)) {
                 DnsMessage.parseQuestionName(payload)?.let { name ->
                     domain = name
+                    val app = context.appInfoResolver.resolve(uid)
+                    if (!blocked && context.isBlocked(app.packageName, domain, remoteAddress.hostAddress ?: "")) {
+                        // Blacklisted domain: drop the query so it never resolves, instead
+                        // of blocking the whole DNS server (that would break every other
+                        // lookup this app or others make through the same resolver).
+                        blocked = true
+                        persist()
+                        close()
+                        return
+                    }
                     persist()
                 }
             }
+
+            if (blocked) return
+            val s = socket ?: return
 
             try {
                 s.send(DatagramPacket(payload, payload.size, remoteAddress, remotePort))
@@ -179,7 +207,8 @@ class UdpNat(private val context: RelayContext) {
                         bytesUp = bytesUp,
                         bytesDown = bytesDown,
                         timestamp = System.currentTimeMillis(),
-                        direction = Direction.OUT
+                        direction = Direction.OUT,
+                        blocked = blocked
                     )
                 )
             }

@@ -22,9 +22,13 @@ class RelayContext(
     val appInfoResolver: AppInfoResolver,
     val dnsCache: DnsCache,
     val scope: CoroutineScope,
+    val ruleMatcher: RuleMatcher,
     private val output: FileOutputStream
 ) {
     private val outputLock = Any()
+
+    fun isBlocked(appPackageName: String, domain: String?, destIp: String): Boolean =
+        ruleMatcher.isBlocked(appPackageName, domain, destIp)
 
     fun protectDatagram(socket: DatagramSocket): Boolean = vpnService.protect(socket)
 

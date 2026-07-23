@@ -9,11 +9,14 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.cruciblelab.trafficlogger.MainViewModel
+import com.cruciblelab.trafficlogger.data.RuleType
 
 private object Routes {
     const val LIST = "list"
     const val DETAIL = "detail/{entryId}"
     const val SETTINGS = "settings"
+    const val STATS = "stats"
+    const val RULES = "rules"
     fun detail(id: Long) = "detail/$id"
 }
 
@@ -24,6 +27,7 @@ fun TrafficNavGraph(viewModel: MainViewModel, onToggleVpn: () -> Unit) {
     val vpnRunning by viewModel.vpnRunning.collectAsState()
     val retentionDays by viewModel.retentionDays.collectAsState()
     val ipInfoMap by viewModel.ipInfoMap.collectAsState()
+    val rules by viewModel.rules.collectAsState()
 
     NavHost(navController = navController, startDestination = Routes.LIST) {
         composable(Routes.LIST) {
@@ -34,7 +38,22 @@ fun TrafficNavGraph(viewModel: MainViewModel, onToggleVpn: () -> Unit) {
                 onRequestIpInfo = viewModel::requestIpInfo,
                 onToggleVpn = onToggleVpn,
                 onEntryClick = { entry -> navController.navigate(Routes.detail(entry.id)) },
-                onSettingsClick = { navController.navigate(Routes.SETTINGS) }
+                onSettingsClick = { navController.navigate(Routes.SETTINGS) },
+                onStatsClick = { navController.navigate(Routes.STATS) },
+                onRulesClick = { navController.navigate(Routes.RULES) },
+                onBlockEntry = viewModel::blockEntry,
+                onWhitelistEntry = viewModel::whitelistEntry
+            )
+        }
+        composable(Routes.STATS) {
+            StatsScreen(entries = entries, onBack = { navController.popBackStack() })
+        }
+        composable(Routes.RULES) {
+            RulesScreen(
+                rules = rules,
+                onAddRule = { type, value -> viewModel.addRule(type, null, null, value) },
+                onDeleteRule = viewModel::deleteRule,
+                onBack = { navController.popBackStack() }
             )
         }
         composable(

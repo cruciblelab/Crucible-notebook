@@ -61,6 +61,7 @@ class TrafficVpnService : VpnService() {
     private lateinit var udpNat: UdpNat
     private lateinit var tcpNat: TcpNat
     private val dnsCache = DnsCache()
+    private val ruleMatcher = RuleMatcher()
 
     override fun onCreate() {
         super.onCreate()
@@ -122,6 +123,7 @@ class TrafficVpnService : VpnService() {
             appInfoResolver = appInfoResolver,
             dnsCache = dnsCache,
             scope = serviceScope,
+            ruleMatcher = ruleMatcher,
             output = output
         )
         udpNat = UdpNat(relayContext)
@@ -133,6 +135,7 @@ class TrafficVpnService : VpnService() {
 
         serviceScope.launch { retentionLoop() }
         serviceScope.launch { sessionSweepLoop() }
+        serviceScope.launch { ruleSyncLoop() }
     }
 
     private fun stopVpn() {
@@ -168,6 +171,12 @@ class TrafficVpnService : VpnService() {
             udpNat.sweepIdleSessions()
             tcpNat.sweepIdleSessions()
         }
+    }
+
+    /** Keeps the in-memory [ruleMatcher] snapshot in sync with rules added/removed in the UI. */
+    private suspend fun ruleSyncLoop() {
+        val ruleRepository = (application as TrafficLoggerApp).ruleRepository
+        ruleRepository.observeAll().collect { rules -> ruleMatcher.update(rules) }
     }
 
     private fun runPacketLoop(pfd: ParcelFileDescriptor, output: FileOutputStream) {

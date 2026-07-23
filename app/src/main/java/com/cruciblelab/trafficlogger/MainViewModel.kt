@@ -3,7 +3,9 @@ package com.cruciblelab.trafficlogger
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.cruciblelab.trafficlogger.data.BlockRule
 import com.cruciblelab.trafficlogger.data.IpInfoCache
+import com.cruciblelab.trafficlogger.data.RuleType
 import com.cruciblelab.trafficlogger.data.TrafficEntry
 import com.cruciblelab.trafficlogger.vpn.TrafficVpnService
 import kotlinx.coroutines.flow.Flow
@@ -26,6 +28,43 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val vpnRunning: StateFlow<Boolean> = TrafficVpnService.isRunning
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val rules: StateFlow<List<BlockRule>> = app.ruleRepository.observeAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Blacklists just this one app + destination pair, not the whole domain everywhere. */
+    fun blockEntry(entry: TrafficEntry) {
+        viewModelScope.launch {
+            app.ruleRepository.add(
+                type = RuleType.BLACKLIST,
+                appPackageName = entry.appPackageName,
+                appLabel = entry.appLabel,
+                matchValue = entry.domain ?: entry.destIp
+            )
+        }
+    }
+
+    fun whitelistEntry(entry: TrafficEntry) {
+        viewModelScope.launch {
+            app.ruleRepository.add(
+                type = RuleType.WHITELIST,
+                appPackageName = entry.appPackageName,
+                appLabel = entry.appLabel,
+                matchValue = entry.domain ?: entry.destIp
+            )
+        }
+    }
+
+    fun addRule(type: RuleType, appPackageName: String?, appLabel: String?, matchValue: String) {
+        if (matchValue.isBlank()) return
+        viewModelScope.launch {
+            app.ruleRepository.add(type, appPackageName, appLabel, matchValue.trim())
+        }
+    }
+
+    fun deleteRule(rule: BlockRule) {
+        viewModelScope.launch { app.ruleRepository.delete(rule) }
+    }
 
     // ip -> resolved ASN / organization / country info, filled in lazily as
     // rows become visible. See IpInfoRepository for caching behaviour.

@@ -88,10 +88,39 @@ class TcpNat(private val context: RelayContext) {
         private var uid = -1
         private var lastPersist = 0L
 
+        @Volatile private var blocked = false
+
         fun beginConnect() {
             thread(name = "TcpConnect-$remotePort", start = true) {
                 uid = context.resolveOwnerUid(PROTO_TCP, clientAddress, clientPort, remoteAddress, remotePort)
                 domain = context.dnsCache.lookup(remoteAddress)
+                val app = context.appInfoResolver.resolve(uid)
+
+                if (context.isBlocked(app.packageName, domain, remoteAddress.hostAddress ?: "")) {
+                    blocked = true
+                    context.scope.launch {
+                        context.repository.insert(
+                            TrafficEntry(
+                                appPackageName = app.packageName,
+                                appLabel = app.label,
+                                domain = domain,
+                                destIp = remoteAddress.hostAddress ?: "",
+                                destPort = remotePort,
+                                protocol = Protocol.TCP,
+                                bytesUp = 0,
+                                bytesDown = 0,
+                                timestamp = System.currentTimeMillis(),
+                                direction = Direction.OUT,
+                                blocked = true
+                            )
+                        )
+                    }
+                    // Reject immediately rather than blackholing, so the app fails fast
+                    // instead of waiting out a connect timeout.
+                    sendRst()
+                    sessions.remove(key)
+                    return@thread
+                }
 
                 val s = Socket()
                 try {
