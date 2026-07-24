@@ -19,5 +19,7 @@ class TrafficRepository(private val dao: TrafficDao) {
         dao.deleteOlderThan(cutoff)
     }
 
+    suspend fun usageSince(sinceTimestamp: Long): List<AppUsage> = dao.usageSince(sinceTimestamp)
+
     suspend fun clearAll() = dao.clearAll()
 }

@@ -1,11 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!--
+      Needed so PackageManager.getApplicationInfo()/getApplicationLabel() can resolve a
+      human-readable name for ANY installed app's UID, not just ones visible to us under
+      Android 11+ package-visibility rules. Without this, apps outside our visibility
+      scope fall back to their raw package name (or "Bilinmeyen (UID x)") in the traffic
+      list even when we already know their UID from getConnectionOwnerUid(). This is a
+      legitimate, narrow use (labeling traffic by owning app) exempt from Play's normal
+      restriction on this permission, since the app's whole purpose requires seeing all
+      installed apps' traffic.
+    -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
 
     <application
         android:name=".TrafficLoggerApp"

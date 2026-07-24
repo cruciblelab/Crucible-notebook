@@ -26,6 +26,7 @@ fun TrafficNavGraph(viewModel: MainViewModel, onToggleVpn: () -> Unit) {
     val entries by viewModel.entries.collectAsState()
     val vpnRunning by viewModel.vpnRunning.collectAsState()
     val retentionDays by viewModel.retentionDays.collectAsState()
+    val dailyLimitMb by viewModel.dailyLimitMb.collectAsState()
     val ipInfoMap by viewModel.ipInfoMap.collectAsState()
     val rules by viewModel.rules.collectAsState()
 
@@ -75,6 +76,8 @@ fun TrafficNavGraph(viewModel: MainViewModel, onToggleVpn: () -> Unit) {
             SettingsScreen(
                 retentionDays = retentionDays,
                 onRetentionChange = viewModel::setRetentionDays,
+                dailyLimitMb = dailyLimitMb,
+                onDailyLimitChange = viewModel::setDailyLimitMb,
                 onClearHistory = viewModel::clearHistory,
                 onBack = { navController.popBackStack() }
             )

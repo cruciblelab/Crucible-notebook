@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Settings
@@ -38,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +49,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cruciblelab.trafficlogger.data.IpInfoCache
 import com.cruciblelab.trafficlogger.data.TrafficEntry
+import com.cruciblelab.trafficlogger.ui.theme.AccentMint
+import com.cruciblelab.trafficlogger.util.KnownOrgCategorizer
 import com.cruciblelab.trafficlogger.ui.theme.TextSecondary
 import com.cruciblelab.trafficlogger.ui.theme.TextTertiary
 import com.cruciblelab.trafficlogger.util.countryFlagEmoji
@@ -242,6 +246,15 @@ private fun IpInfoCard(ipInfo: IpInfoCache?, ip: String) {
                 (ipInfo.org ?: ipInfo.isp)?.let {
                     InfoRow(icon = Icons.Filled.Business, emoji = null, label = "Sağlayıcı / ASN sahibi", value = it)
                 }
+                KnownOrgCategorizer.categorize(ipInfo.org, ipInfo.isp)?.let { match ->
+                    InfoRow(
+                        icon = Icons.Filled.CheckCircle,
+                        emoji = null,
+                        label = "Kategori",
+                        value = "${match.company} · ${match.category.displayName}",
+                        valueColor = AccentMint
+                    )
+                }
                 ipInfo.asn?.let {
                     InfoRow(icon = Icons.Filled.Tag, emoji = null, label = "ASN", value = "AS$it")
                 }
@@ -257,7 +270,8 @@ private fun InfoRow(
     emoji: String?,
     label: String,
     value: String,
-    monospace: Boolean = false
+    monospace: Boolean = false,
+    valueColor: Color? = null
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
@@ -277,7 +291,8 @@ private fun InfoRow(
         Text(
             value,
             style = MaterialTheme.typography.bodyMedium,
-            fontFamily = if (monospace) FontFamily.Monospace else FontFamily.Default
+            fontFamily = if (monospace) FontFamily.Monospace else FontFamily.Default,
+            color = valueColor ?: Color.Unspecified
         )
     }
 }

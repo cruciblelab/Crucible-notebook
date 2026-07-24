@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -36,11 +37,22 @@ import com.cruciblelab.trafficlogger.ui.theme.TextSecondary
 
 private val RETENTION_OPTIONS = listOf(1, 7, 30)
 
+/** 0 = disabled ("Kapalı"); others are megabytes. */
+private val DAILY_LIMIT_OPTIONS = listOf(0, 100, 500, 1000, 2000)
+
+private fun dailyLimitLabel(mb: Int): String = when {
+    mb <= 0 -> "Kapalı"
+    mb < 1000 -> "$mb MB"
+    else -> "${mb / 1000} GB"
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     retentionDays: Int,
     onRetentionChange: (Int) -> Unit,
+    dailyLimitMb: Int,
+    onDailyLimitChange: (Int) -> Unit,
     onClearHistory: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -78,6 +90,34 @@ fun SettingsScreen(
                             selected = retentionDays == days,
                             onClick = { onRetentionChange(days) },
                             label = { Text("$days gün") },
+                            shape = RoundedCornerShape(50),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = Color.White
+                            )
+                        )
+                    }
+                }
+
+                Text(
+                    "Uygulama başına günlük veri uyarısı",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(top = 24.dp, bottom = 4.dp)
+                )
+                Text(
+                    "Bir uygulama gün içinde seçilen sınırı aşınca bildirim gönderilir.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(bottom = 10.dp)
+                )
+                androidx.compose.foundation.lazy.LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(DAILY_LIMIT_OPTIONS) { mb ->
+                        FilterChip(
+                            selected = dailyLimitMb == mb,
+                            onClick = { onDailyLimitChange(mb) },
+                            label = { Text(dailyLimitLabel(mb)) },
                             shape = RoundedCornerShape(50),
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary,

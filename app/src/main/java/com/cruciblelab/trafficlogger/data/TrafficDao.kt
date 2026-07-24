@@ -6,6 +6,13 @@ import androidx.room.Query
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
+/** Aggregated usage for one app, used for the daily data-limit check. */
+data class AppUsage(
+    val appPackageName: String,
+    val appLabel: String,
+    val totalBytes: Long
+)
+
 @Dao
 interface TrafficDao {
 
@@ -30,6 +37,14 @@ interface TrafficDao {
 
     @Query("DELETE FROM traffic_entries WHERE timestamp < :cutoffTimestamp")
     suspend fun deleteOlderThan(cutoffTimestamp: Long)
+
+    /** Per-app byte totals since [sinceTimestamp], used to evaluate the daily usage limit. */
+    @Query(
+        "SELECT appPackageName, appLabel, SUM(bytesUp + bytesDown) as totalBytes " +
+            "FROM traffic_entries WHERE timestamp >= :sinceTimestamp " +
+            "GROUP BY appPackageName"
+    )
+    suspend fun usageSince(sinceTimestamp: Long): List<AppUsage>
 
     @Query("DELETE FROM traffic_entries")
     suspend fun clearAll()

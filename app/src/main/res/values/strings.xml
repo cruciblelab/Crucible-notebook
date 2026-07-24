@@ -7,4 +7,6 @@
     <string name="action_stop">Durdur</string>
     <string name="vpn_warning">VPN etkinken cihazdaki gerçek bir VPN uygulaması aynı anda çalışamaz. Bu izin, hangi uygulamanın ne kadar ve nereye veri gönderip aldığını görmek için kullanılır; trafiğiniz hiçbir dış sunucuya yönlendirilmez, sadece gerçek hedefine kadar cihaz üzerinde aktarılır.</string>
     <string name="https_disclaimer">Şifreli (HTTPS) bağlantıların içeriği görüntülenemez. Yalnızca hangi uygulamanın hangi alan adına/adrese ne kadar veri gönderdiği görülebilir.</string>
+    <string name="data_limit_notification_channel">Veri Kullanım Uyarıları</string>
+    <string name="data_limit_notification_title">Günlük veri limiti aşıldı</string>
 </resources>

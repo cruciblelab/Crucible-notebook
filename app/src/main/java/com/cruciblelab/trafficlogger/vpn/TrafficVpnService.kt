@@ -13,7 +13,10 @@ import androidx.core.app.NotificationCompat
 import com.cruciblelab.trafficlogger.MainActivity
 import com.cruciblelab.trafficlogger.R
 import com.cruciblelab.trafficlogger.TrafficLoggerApp
+import com.cruciblelab.trafficlogger.data.AppUsage
 import com.cruciblelab.trafficlogger.util.AppInfoResolver
+import com.cruciblelab.trafficlogger.util.formatBytes
+import com.cruciblelab.trafficlogger.util.startOfDayMillis
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -25,6 +28,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
@@ -46,14 +51,31 @@ class TrafficVpnService : VpnService() {
         private const val NOTIFICATION_ID = 42
         private const val CHANNEL_ID = "traffic_monitor"
         private const val SESSION_SWEEP_INTERVAL_MS = 15_000L
+        private const val DATA_LIMIT_CHANNEL_ID = "data_limit_alerts"
+        private const val DATA_LIMIT_CHECK_INTERVAL_MS = 5 * 60_000L
+
+        /**
+         * Number of parallel packet-processing workers. The TUN reader thread stays
+         * single-threaded (reading the fd itself is cheap and must stay in order), but
+         * the actual per-packet work - NAT lookups, socket writes for TCP/UDP relay -
+         * fans out across these so one slow/laggy connection (e.g. a background app
+         * with a bad link) can't hold up packets from an unrelated one (e.g. a game).
+         * Each packet is routed to a worker by hashing its 4-tuple, so all packets of
+         * the same connection always land on the same worker and stay strictly ordered
+         * relative to each other (important for the simplified TCP state machine).
+         * 3-5 is a good range for a phone CPU; raise it if the device has more cores
+         * and you're running many simultaneous connections, lower it to save battery.
+         */
+        private const val PACKET_WORKER_COUNT = 4
 
         private val _isRunning = MutableStateFlow(false)
         val isRunning = _isRunning.asStateFlow()
     }
 
     private var vpnInterface: ParcelFileDescriptor? = null
-    private var workerThread: Thread? = null
+    private var readerThread: Thread? = null
     @Volatile private var running = false
+    private var packetWorkers: List<ExecutorService> = emptyList()
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var appInfoResolver: AppInfoResolver
@@ -62,6 +84,11 @@ class TrafficVpnService : VpnService() {
     private lateinit var tcpNat: TcpNat
     private val dnsCache = DnsCache()
     private val ruleMatcher = RuleMatcher()
+
+    // Tracks which app packages have already triggered a daily-limit notification for
+    // [notifiedForDay], so we alert once per app per day rather than every check cycle.
+    private var notifiedForDay: Long = -1L
+    private val notifiedApps = mutableSetOf<String>()
 
     override fun onCreate() {
         super.onCreate()
@@ -129,20 +156,27 @@ class TrafficVpnService : VpnService() {
         udpNat = UdpNat(relayContext)
         tcpNat = TcpNat(relayContext)
 
-        workerThread = thread(name = "TrafficVpnWorker", start = true) {
-            runPacketLoop(establishedInterface, output)
+        packetWorkers = List(PACKET_WORKER_COUNT) { index ->
+            Executors.newSingleThreadExecutor { r -> Thread(r, "TrafficVpnWorker-$index") }
+        }
+
+        readerThread = thread(name = "TrafficVpnReader", start = true) {
+            runPacketLoop(establishedInterface)
         }
 
         serviceScope.launch { retentionLoop() }
         serviceScope.launch { sessionSweepLoop() }
         serviceScope.launch { ruleSyncLoop() }
+        serviceScope.launch { dataLimitLoop() }
     }
 
     private fun stopVpn() {
         running = false
         _isRunning.value = false
-        workerThread?.interrupt()
-        workerThread = null
+        readerThread?.interrupt()
+        readerThread = null
+        packetWorkers.forEach { it.shutdownNow() }
+        packetWorkers = emptyList()
         if (::udpNat.isInitialized) udpNat.closeAll()
         if (::tcpNat.isInitialized) tcpNat.closeAll()
         try {
@@ -179,7 +213,61 @@ class TrafficVpnService : VpnService() {
         ruleRepository.observeAll().collect { rules -> ruleMatcher.update(rules) }
     }
 
-    private fun runPacketLoop(pfd: ParcelFileDescriptor, output: FileOutputStream) {
+    /**
+     * Periodically checks each app's usage for the current (local) day against the
+     * user-configured per-app limit, firing one notification per app per day the first
+     * time it crosses the threshold. A limit of 0 (or less) means the feature is off.
+     */
+    private suspend fun dataLimitLoop() {
+        val settingsRepository = (application as TrafficLoggerApp).settingsRepository
+        val repository = (application as TrafficLoggerApp).trafficRepository
+        while (running) {
+            val limitMb = settingsRepository.dailyLimitMb.first()
+            if (limitMb > 0) {
+                val dayStart = startOfDayMillis()
+                if (dayStart != notifiedForDay) {
+                    notifiedForDay = dayStart
+                    notifiedApps.clear()
+                }
+                val limitBytes = limitMb * 1024L * 1024L
+                repository.usageSince(dayStart)
+                    .filter { it.totalBytes >= limitBytes && notifiedApps.add(it.appPackageName) }
+                    .forEach { usage -> sendDataLimitNotification(usage) }
+            }
+            delay(DATA_LIMIT_CHECK_INTERVAL_MS)
+        }
+    }
+
+    private fun sendDataLimitNotification(usage: AppUsage) {
+        val notificationManager = getSystemService(NotificationManager::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                DATA_LIMIT_CHANNEL_ID,
+                getString(R.string.data_limit_notification_channel),
+                NotificationManager.IMPORTANCE_DEFAULT
+            )
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val contentIntent = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, DATA_LIMIT_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.stat_sys_warning)
+            .setContentTitle(getString(R.string.data_limit_notification_title))
+            .setContentText("${usage.appLabel}: ${formatBytes(usage.totalBytes)}")
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .build()
+
+        notificationManager.notify(usage.appPackageName.hashCode(), notification)
+    }
+
+    private fun runPacketLoop(pfd: ParcelFileDescriptor) {
         val input = FileInputStream(pfd.fileDescriptor)
         val buffer = ByteArray(32767)
 
@@ -191,24 +279,56 @@ class TrafficVpnService : VpnService() {
             }
             if (length <= 0) continue
 
+            // Copy out of the shared read buffer before handing off, since the next
+            // loop iteration overwrites it as soon as a worker has started using it.
             val packetCopy = buffer.copyOf(length)
-            dispatchPacket(packetCopy, output)
+            dispatchPacket(packetCopy)
         }
     }
 
-    private fun dispatchPacket(packet: ByteArray, output: FileOutputStream) {
+    /**
+     * Parses just the headers on the (single) reader thread - cheap - then hands the
+     * actual NAT/relay work off to one of [packetWorkers], chosen by hashing the
+     * connection's 4-tuple so every packet of the same connection always lands on the
+     * same worker (preserving order) while unrelated connections run in parallel.
+     */
+    private fun dispatchPacket(packet: ByteArray) {
         val header = PacketUtils.parseIpv4Header(packet, packet.size) ?: return
         when (header.protocol) {
             PROTO_UDP -> {
                 val udp = PacketUtils.parseUdp(packet, packet.size, header) ?: return
-                udpNat.handleClientPacket(udp)
+                workerFor(header.sourceAddress.hashCode(), header.destAddress.hashCode(), udp.sourcePort, udp.destPort)
+                    ?.execute {
+                        try {
+                            udpNat.handleClientPacket(udp)
+                        } catch (e: Exception) {
+                            // isolate failures to this one packet/connection
+                        }
+                    }
             }
             PROTO_TCP -> {
                 val tcp = PacketUtils.parseTcp(packet, packet.size, header) ?: return
-                tcpNat.handleClientSegment(tcp)
+                workerFor(header.sourceAddress.hashCode(), header.destAddress.hashCode(), tcp.sourcePort, tcp.destPort)
+                    ?.execute {
+                        try {
+                            tcpNat.handleClientSegment(tcp)
+                        } catch (e: Exception) {
+                            // isolate failures to this one packet/connection
+                        }
+                    }
             }
             else -> Unit // other protocols (ICMP etc.) aren't relayed in this stage
         }
+    }
+
+    private fun workerFor(srcAddrHash: Int, dstAddrHash: Int, srcPort: Int, dstPort: Int): ExecutorService? {
+        val workers = packetWorkers
+        if (workers.isEmpty()) return null
+        var h = srcAddrHash
+        h = 31 * h + dstAddrHash
+        h = 31 * h + srcPort
+        h = 31 * h + dstPort
+        return workers[Math.floorMod(h, workers.size)]
     }
 
     private fun buildNotification(): Notification {

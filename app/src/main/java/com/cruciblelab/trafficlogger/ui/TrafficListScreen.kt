@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.InsertChartOutlined
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Public
@@ -43,11 +44,13 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -63,7 +66,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.cruciblelab.trafficlogger.data.Direction
 import com.cruciblelab.trafficlogger.data.IpInfoCache
+import com.cruciblelab.trafficlogger.data.Protocol
 import com.cruciblelab.trafficlogger.data.TrafficEntry
 import com.cruciblelab.trafficlogger.ui.theme.AccentCoral
 import com.cruciblelab.trafficlogger.ui.theme.AvatarPalette
@@ -72,6 +77,24 @@ import com.cruciblelab.trafficlogger.ui.theme.TextTertiary
 import com.cruciblelab.trafficlogger.util.countryFlagEmoji
 import com.cruciblelab.trafficlogger.util.formatBytes
 import com.cruciblelab.trafficlogger.util.formatTimestamp
+import com.cruciblelab.trafficlogger.util.startOfDayMillis
+import java.util.concurrent.TimeUnit
+
+/** Local (non-persisted) date-range presets for the traffic list filter sheet. */
+enum class DateRangePreset(val label: String) {
+    ALL("Tümü"),
+    TODAY("Bugün"),
+    LAST_7_DAYS("Son 7 gün"),
+    LAST_30_DAYS("Son 30 gün")
+}
+
+/** Local (non-persisted) sort options for the traffic list. */
+enum class TrafficSortOption(val label: String) {
+    DATE_DESC("Tarih: yeni → eski"),
+    DATE_ASC("Tarih: eski → yeni"),
+    SIZE_DESC("Veri boyutu: büyük → küçük"),
+    SIZE_ASC("Veri boyutu: küçük → büyük")
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,8 +113,17 @@ fun TrafficListScreen(
 ) {
     var selectedApp by remember { mutableStateOf<String?>(null) }
     var query by remember { mutableStateOf("") }
+    var protocolFilter by remember { mutableStateOf<Protocol?>(null) }
+    var directionFilter by remember { mutableStateOf<Direction?>(null) }
+    var dateRangeFilter by remember { mutableStateOf(DateRangePreset.ALL) }
+    var sortOption by remember { mutableStateOf(TrafficSortOption.DATE_DESC) }
+    var showFilterSheet by remember { mutableStateOf(false) }
+
     val appNames = remember(entries) { entries.map { it.appLabel }.distinct().sorted() }
-    val filteredEntries = remember(entries, selectedApp, query) {
+    val filtersActive = protocolFilter != null || directionFilter != null || dateRangeFilter != DateRangePreset.ALL ||
+        sortOption != TrafficSortOption.DATE_DESC
+
+    val filteredEntries = remember(entries, selectedApp, query, protocolFilter, directionFilter, dateRangeFilter, sortOption) {
         entries
             .let { list -> selectedApp?.let { app -> list.filter { it.appLabel == app } } ?: list }
             .let { list ->
@@ -100,6 +132,25 @@ fun TrafficListScreen(
                     it.appLabel.contains(query, ignoreCase = true) ||
                         (it.domain?.contains(query, ignoreCase = true) ?: false) ||
                         it.destIp.contains(query, ignoreCase = true)
+                }
+            }
+            .let { list -> protocolFilter?.let { p -> list.filter { it.protocol == p } } ?: list }
+            .let { list -> directionFilter?.let { d -> list.filter { it.direction == d } } ?: list }
+            .let { list ->
+                val cutoff = when (dateRangeFilter) {
+                    DateRangePreset.ALL -> null
+                    DateRangePreset.TODAY -> startOfDayMillis()
+                    DateRangePreset.LAST_7_DAYS -> System.currentTimeMillis() - TimeUnit.DAYS.toMillis(7)
+                    DateRangePreset.LAST_30_DAYS -> System.currentTimeMillis() - TimeUnit.DAYS.toMillis(30)
+                }
+                cutoff?.let { since -> list.filter { it.timestamp >= since } } ?: list
+            }
+            .let { list ->
+                when (sortOption) {
+                    TrafficSortOption.DATE_DESC -> list.sortedByDescending { it.timestamp }
+                    TrafficSortOption.DATE_ASC -> list.sortedBy { it.timestamp }
+                    TrafficSortOption.SIZE_DESC -> list.sortedByDescending { it.bytesUp + it.bytesDown }
+                    TrafficSortOption.SIZE_ASC -> list.sortedBy { it.bytesUp + it.bytesDown }
                 }
             }
     }
@@ -112,6 +163,13 @@ fun TrafficListScreen(
                     Text("Ağ Trafiği Defteri", fontWeight = FontWeight.Bold)
                 },
                 actions = {
+                    IconButton(onClick = { showFilterSheet = true }) {
+                        Icon(
+                            Icons.Filled.FilterList,
+                            contentDescription = "Filtrele ve sırala",
+                            tint = if (filtersActive) MaterialTheme.colorScheme.primary else TextSecondary
+                        )
+                    }
                     IconButton(onClick = onStatsClick) {
                         Icon(Icons.Filled.InsertChartOutlined, contentDescription = "İstatistikler", tint = TextSecondary)
                     }
@@ -205,6 +263,128 @@ fun TrafficListScreen(
             }
         }
     }
+
+    if (showFilterSheet) {
+        FilterSortSheet(
+            protocolFilter = protocolFilter,
+            onProtocolChange = { protocolFilter = it },
+            directionFilter = directionFilter,
+            onDirectionChange = { directionFilter = it },
+            dateRangeFilter = dateRangeFilter,
+            onDateRangeChange = { dateRangeFilter = it },
+            sortOption = sortOption,
+            onSortChange = { sortOption = it },
+            onReset = {
+                protocolFilter = null
+                directionFilter = null
+                dateRangeFilter = DateRangePreset.ALL
+                sortOption = TrafficSortOption.DATE_DESC
+            },
+            onDismiss = { showFilterSheet = false }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FilterSortSheet(
+    protocolFilter: Protocol?,
+    onProtocolChange: (Protocol?) -> Unit,
+    directionFilter: Direction?,
+    onDirectionChange: (Direction?) -> Unit,
+    dateRangeFilter: DateRangePreset,
+    onDateRangeChange: (DateRangePreset) -> Unit,
+    sortOption: TrafficSortOption,
+    onSortChange: (TrafficSortOption) -> Unit,
+    onReset: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState()
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp).padding(bottom = 24.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Filtrele ve sırala", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    "Sıfırla",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable(onClick = onReset)
+                )
+            }
+
+            SheetSectionTitle("Protokol")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SheetChip("Tümü", protocolFilter == null) { onProtocolChange(null) }
+                Protocol.entries.forEach { protocol ->
+                    SheetChip(protocol.name, protocolFilter == protocol) { onProtocolChange(protocol) }
+                }
+            }
+
+            SheetSectionTitle("Yön")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SheetChip("Tümü", directionFilter == null) { onDirectionChange(null) }
+                SheetChip("Giden", directionFilter == Direction.OUT) { onDirectionChange(Direction.OUT) }
+                SheetChip("Gelen", directionFilter == Direction.IN) { onDirectionChange(Direction.IN) }
+            }
+
+            SheetSectionTitle("Tarih aralığı")
+            androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(DateRangePreset.entries.toList()) { preset ->
+                    SheetChip(preset.label, dateRangeFilter == preset) { onDateRangeChange(preset) }
+                }
+            }
+
+            SheetSectionTitle("Sırala")
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                TrafficSortOption.entries.forEach { option ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onSortChange(option) }
+                            .padding(vertical = 10.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        androidx.compose.material3.RadioButton(
+                            selected = sortOption == option,
+                            onClick = { onSortChange(option) }
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(option.label, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SheetSectionTitle(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(top = 20.dp, bottom = 10.dp)
+    )
+}
+
+@Composable
+private fun SheetChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label) },
+        shape = RoundedCornerShape(50),
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MaterialTheme.colorScheme.primary,
+            selectedLabelColor = Color.White
+        )
+    )
 }
 
 @Composable

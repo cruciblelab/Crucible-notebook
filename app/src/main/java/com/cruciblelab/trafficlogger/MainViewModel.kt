@@ -26,6 +26,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val retentionDays: StateFlow<Int> = app.settingsRepository.retentionDays
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 7)
 
+    val dailyLimitMb: StateFlow<Int> = app.settingsRepository.dailyLimitMb
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
     val vpnRunning: StateFlow<Boolean> = TrafficVpnService.isRunning
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
@@ -88,6 +91,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setRetentionDays(days: Int) {
         viewModelScope.launch { app.settingsRepository.setRetentionDays(days) }
+    }
+
+    fun setDailyLimitMb(mb: Int) {
+        viewModelScope.launch { app.settingsRepository.setDailyLimitMb(mb) }
     }
 
     fun clearHistory() {
