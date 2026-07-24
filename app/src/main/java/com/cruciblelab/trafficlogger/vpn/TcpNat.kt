@@ -138,7 +138,6 @@ class TcpNat(private val context: RelayContext) {
                 lastActivity = System.currentTimeMillis()
                 sendSynAck()
 
-                val app = context.appInfoResolver.resolve(uid)
                 context.scope.launch {
                     entryId = context.repository.insert(
                         TrafficEntry(
