@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Ağ Trafiği Defteri</string>
+    <string name="app_name">Canlı Ağ Trafiği</string>
     <string name="vpn_notification_channel">Trafik İzleme</string>
     <string name="vpn_notification_title">Ağ trafiği izleniyor</string>
     <string name="vpn_notification_text">Ağ trafiği pasif olarak kaydediliyor</string>

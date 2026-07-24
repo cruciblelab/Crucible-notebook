@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.InsertChartOutlined
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Public
@@ -105,6 +106,7 @@ fun TrafficListScreen(
     onRequestIpInfo: (String) -> Unit,
     onToggleVpn: () -> Unit,
     onEntryClick: (TrafficEntry) -> Unit,
+    onHomeClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onStatsClick: () -> Unit,
     onRulesClick: () -> Unit,
@@ -160,7 +162,12 @@ fun TrafficListScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text("Ağ Trafiği Defteri", fontWeight = FontWeight.Bold)
+                    Text("Canlı Ağ Trafiği", fontWeight = FontWeight.Bold)
+                },
+                navigationIcon = {
+                    IconButton(onClick = onHomeClick) {
+                        Icon(Icons.Filled.Home, contentDescription = "Ana Sayfa", tint = TextSecondary)
+                    }
                 },
                 actions = {
                     IconButton(onClick = { showFilterSheet = true }) {

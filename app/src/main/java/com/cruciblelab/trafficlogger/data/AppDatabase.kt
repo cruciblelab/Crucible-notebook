@@ -7,8 +7,14 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
 @Database(
-    entities = [TrafficEntry::class, IpInfoCache::class, BlockRule::class],
-    version = 3,
+    entities = [
+        TrafficEntry::class,
+        IpInfoCache::class,
+        BlockRule::class,
+        ReputationSource::class,
+        AppReputationEntry::class
+    ],
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -17,6 +23,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun trafficDao(): TrafficDao
     abstract fun ipInfoDao(): IpInfoDao
     abstract fun blockRuleDao(): BlockRuleDao
+    abstract fun reputationDao(): ReputationDao
 
     companion object {
         @Volatile

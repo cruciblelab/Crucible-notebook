@@ -20,4 +20,16 @@ class Converters {
 
     @TypeConverter
     fun toRuleType(value: String): RuleType = RuleType.valueOf(value)
+
+    @TypeConverter
+    fun fromReputationVerdict(value: ReputationVerdict): String = value.name
+
+    @TypeConverter
+    fun toReputationVerdict(value: String): ReputationVerdict = ReputationVerdict.valueOf(value)
+
+    @TypeConverter
+    fun fromMatchType(value: MatchType): String = value.name
+
+    @TypeConverter
+    fun toMatchType(value: String): MatchType = MatchType.valueOf(value)
 }

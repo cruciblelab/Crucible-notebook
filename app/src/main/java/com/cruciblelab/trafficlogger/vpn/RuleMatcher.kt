@@ -38,6 +38,10 @@ class RuleMatcher {
     private fun matches(rule: BlockRule, appPackageName: String, domain: String?, destIp: String): Boolean {
         if (rule.appPackageName != null && rule.appPackageName != appPackageName) return false
 
+        // "*" is a wildcard used for reputation-database-driven auto-block rules (see
+        // RuleRepository): it means "block this app entirely", not tied to one domain/IP.
+        if (rule.matchValue == "*") return true
+
         if (rule.matchValue == destIp) return true
 
         val d = domain ?: return false

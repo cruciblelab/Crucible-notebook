@@ -1,4 +1,4 @@
-# Ağ Trafiği Defteri (Network Traffic Logger)
+# Canlı Ağ Trafiği (Network Traffic Logger)
 
 Cihazdan geçen DNS trafiğini pasif olarak izleyen, üçüncü parti bağımlılık
 içermeyen (yalnızca AndroidX/Google kütüphaneleri) bir Android uygulaması.
@@ -48,3 +48,13 @@ vermiyor) satırda sadece IP/domain gösterilmeye devam edilir.
 
 GitHub Actions üzerinde `.github/workflows/android-build.yml` her push/PR'da
 debug APK'yı derler ve artifact olarak yükler.
+
+## Geliştirici
+
+- **Geliştirici / Kuruluş:** Cruciblelab
+- **Yetkili:** Fırat Coşkun
+- **İletişim:** cruciblelab@hotmail.com
+
+> Not: Bu bilgiler Play Console'daki "Mağaza Ayarları / Geliştirici İletişim
+> Bilgileri" alanlarına ayrıca girilmeli - kod içindeki bu README, Play
+> Store'daki listelemeyi otomatik güncellemez.

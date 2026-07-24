@@ -1,0 +1,21 @@
+[
+  {"package": "com.android.", "matchType": "PREFIX", "verdict": "TRUSTED", "label": "Android Sistemi (AOSP)"},
+  {"package": "com.google.android.", "matchType": "PREFIX", "verdict": "TRUSTED", "label": "Google"},
+  {"package": "com.google.gms.", "matchType": "PREFIX", "verdict": "TRUSTED", "label": "Google Play Hizmetleri"},
+  {"package": "com.samsung.android.", "matchType": "PREFIX", "verdict": "TRUSTED", "label": "Samsung"},
+  {"package": "com.sec.android.", "matchType": "PREFIX", "verdict": "TRUSTED", "label": "Samsung"},
+  {"package": "com.miui.", "matchType": "PREFIX", "verdict": "TRUSTED", "label": "Xiaomi (MIUI)"},
+  {"package": "com.xiaomi.", "matchType": "PREFIX", "verdict": "TRUSTED", "label": "Xiaomi"},
+  {"package": "com.huawei.", "matchType": "PREFIX", "verdict": "TRUSTED", "label": "Huawei"},
+  {"package": "com.oppo.", "matchType": "PREFIX", "verdict": "TRUSTED", "label": "OPPO"},
+  {"package": "com.coloros.", "matchType": "PREFIX", "verdict": "TRUSTED", "label": "OPPO (ColorOS)"},
+  {"package": "com.oneplus.", "matchType": "PREFIX", "verdict": "TRUSTED", "label": "OnePlus"},
+  {"package": "com.vivo.", "matchType": "PREFIX", "verdict": "TRUSTED", "label": "vivo"},
+  {"package": "com.whatsapp", "matchType": "EXACT", "verdict": "TRUSTED", "label": "WhatsApp"},
+  {"package": "org.telegram.messenger", "matchType": "EXACT", "verdict": "TRUSTED", "label": "Telegram"},
+  {"package": "com.instagram.android", "matchType": "EXACT", "verdict": "TRUSTED", "label": "Instagram"},
+  {"package": "com.facebook.katana", "matchType": "EXACT", "verdict": "TRUSTED", "label": "Facebook"},
+  {"package": "com.spotify.music", "matchType": "EXACT", "verdict": "TRUSTED", "label": "Spotify"},
+  {"package": "com.netflix.mediaclient", "matchType": "EXACT", "verdict": "TRUSTED", "label": "Netflix"},
+  {"package": "com.microsoft.", "matchType": "PREFIX", "verdict": "TRUSTED", "label": "Microsoft"}
+]

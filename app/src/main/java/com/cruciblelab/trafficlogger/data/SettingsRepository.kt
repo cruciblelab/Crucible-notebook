@@ -1,6 +1,7 @@
 package com.cruciblelab.trafficlogger.data
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -18,6 +19,18 @@ class SettingsRepository(private val context: Context) {
         val DAILY_LIMIT_MB_KEY = intPreferencesKey("daily_limit_mb")
         /** 0 means the per-app daily data limit warning is disabled. */
         const val DEFAULT_DAILY_LIMIT_MB = 0
+
+        val ONBOARDING_COMPLETED_KEY = booleanPreferencesKey("onboarding_completed")
+    }
+
+    val onboardingCompleted: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[ONBOARDING_COMPLETED_KEY] ?: false
+    }
+
+    suspend fun setOnboardingCompleted(completed: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[ONBOARDING_COMPLETED_KEY] = completed
+        }
     }
 
     val retentionDays: Flow<Int> = context.dataStore.data.map { prefs ->
