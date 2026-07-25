@@ -22,5 +22,12 @@ data class TrafficEntry(
     val timestamp: Long,
     val direction: Direction,
     /** true if this connection was refused because it matched a blacklist rule. */
-    val blocked: Boolean = false
+    val blocked: Boolean = false,
+    /**
+     * Kaç ayrı bağlantının bu satırda birleştirildiği (coalesce). Aynı (uygulama, domain)
+     * çifti kısa bir pencere içinde (bkz. RelayContext.CONNECT_COALESCE_WINDOW_MS) art arda
+     * yeni bağlantılar açtığında - CDN/video akışı gibi - her biri ayrı satır yerine bu satıra
+     * eklenir. 1 = normal, tekil bağlantı.
+     */
+    val connectionCount: Int = 1
 )

@@ -64,6 +64,9 @@ class UdpNat(private val context: RelayContext) {
         private var domain: String? = null
         private var uid = -1
         private var readerThread: Thread? = null
+        // Coalesce (satır birleştirme) - bkz. RelayContext / TcpNat'teki aynı mekanizma.
+        private var coalesceKey: String? = null
+        private var connectionCount = 1
 
         fun start() {
             uid = context.resolveOwnerUid(PROTO_UDP, clientAddress, clientPort, remoteAddress, remotePort)
@@ -92,11 +95,12 @@ class UdpNat(private val context: RelayContext) {
             }
             socket = newSocket
 
-            logEntry(app)
+            logOrCoalesceEntry(app)
 
             readerThread = thread(name = "UdpNat-$remotePort", start = true) { readLoop(newSocket) }
         }
 
+        /** Yalnızca ENGELLENEN denemeler için: mevcut throttle davranışı, satır birleştirme yok. */
         private fun logEntry(app: ResolvedApp) {
             context.scope.launch {
                 entryId = context.repository.insert(
@@ -114,6 +118,54 @@ class UdpNat(private val context: RelayContext) {
                         blocked = blocked
                     )
                 )
+            }
+        }
+
+        /**
+         * İZİN VERİLEN bağlantılar için: aynı (app, domain) çifti kısa süre önce kapanmışsa
+         * (bkz. RelayContext.CONNECT_COALESCE_WINDOW_MS) yeni satır açmak yerine onu devralır.
+         * QUIC/UDP-443 üzerinden çalışan uygulamalar (TikTok video CDN'i gibi) saniyeler
+         * içinde birçok efemeral porttan yeni oturum açtığı için bu, DB'de satır patlamasını
+         * engeller.
+         */
+        private fun logOrCoalesceEntry(app: ResolvedApp) {
+            val currentDomain = domain
+            context.scope.launch {
+                val coalesceLookupKey = currentDomain?.let { context.coalesceKeyFor(app.packageName, it, PROTO_UDP) }
+                val claimedId = coalesceLookupKey?.let { context.claimCoalesceTarget(it) }
+                val existing = claimedId?.let { context.repository.getByIdOnce(it) }
+
+                if (existing != null) {
+                    entryId = existing.id
+                    bytesUp = existing.bytesUp
+                    bytesDown = existing.bytesDown
+                    connectionCount = existing.connectionCount + 1
+                    coalesceKey = coalesceLookupKey
+                    context.repository.update(
+                        existing.copy(
+                            timestamp = System.currentTimeMillis(),
+                            connectionCount = connectionCount
+                        )
+                    )
+                } else {
+                    coalesceKey = coalesceLookupKey
+                    entryId = context.repository.insert(
+                        TrafficEntry(
+                            appPackageName = app.packageName,
+                            appLabel = app.label,
+                            domain = domain,
+                            destIp = remoteAddress.hostAddress ?: "",
+                            destPort = remotePort,
+                            protocol = Protocol.UDP,
+                            bytesUp = 0,
+                            bytesDown = 0,
+                            timestamp = System.currentTimeMillis(),
+                            direction = Direction.OUT,
+                            blocked = false,
+                            connectionCount = connectionCount
+                        )
+                    )
+                }
             }
         }
 
@@ -213,7 +265,8 @@ class UdpNat(private val context: RelayContext) {
                         bytesDown = bytesDown,
                         timestamp = System.currentTimeMillis(),
                         direction = Direction.OUT,
-                        blocked = blocked
+                        blocked = blocked,
+                        connectionCount = connectionCount
                     )
                 )
             }
@@ -223,6 +276,9 @@ class UdpNat(private val context: RelayContext) {
             if (closed) return
             closed = true
             persist()
+            if (!blocked && entryId > 0) {
+                coalesceKey?.let { context.releaseCoalesceTarget(it, entryId) }
+            }
             try {
                 socket?.close()
             } catch (e: Exception) {

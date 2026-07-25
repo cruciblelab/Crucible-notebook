@@ -16,7 +16,8 @@ import androidx.room.TypeConverters
         PackageSignatureRecord::class,
         ProfileEntity::class
     ],
-    version = 6,
+    // v7: TrafficEntry.connectionCount eklendi (bkz. RelayContext coalesce mantığı).
+    version = 7,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

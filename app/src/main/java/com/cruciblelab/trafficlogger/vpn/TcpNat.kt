@@ -87,6 +87,11 @@ class TcpNat(private val context: RelayContext) {
         private var domain: String? = null
         private var uid = -1
         private var lastPersist = 0L
+        // Coalesce (satır birleştirme) - bkz. RelayContext. coalesceKey null ise bu oturum
+        // ya kendi yeni satırını açtı ama domain henüz bilinmediği için başkasınca claim
+        // edilemez bırakıldı, ya da zaten engellendi.
+        private var coalesceKey: String? = null
+        private var connectionCount = 1
 
         @Volatile private var blocked = false
         // Faz 2 - SNI: client'tan gelen ilk veri segmentinde (genelde TLS ClientHello)
@@ -146,21 +151,48 @@ class TcpNat(private val context: RelayContext) {
                 lastActivity = System.currentTimeMillis()
                 sendSynAck()
 
+                val currentDomain = domain
                 context.scope.launch {
-                    entryId = context.repository.insert(
-                        TrafficEntry(
-                            appPackageName = app.packageName,
-                            appLabel = app.label,
-                            domain = domain,
-                            destIp = remoteAddress.hostAddress ?: "",
-                            destPort = remotePort,
-                            protocol = Protocol.TCP,
-                            bytesUp = 0,
-                            bytesDown = 0,
-                            timestamp = System.currentTimeMillis(),
-                            direction = Direction.OUT
+                    val coalesceLookupKey = currentDomain?.let { context.coalesceKeyFor(app.packageName, it, PROTO_TCP) }
+                    val claimedId = coalesceLookupKey?.let { context.claimCoalesceTarget(it) }
+                    val existing = claimedId?.let { context.repository.getByIdOnce(it) }
+
+                    if (existing != null) {
+                        // Kısa süre önce kapanmış aynı (app, domain) satırını devral: yeni
+                        // satır açmak yerine mevcut byte/sayaçların üstüne devam et.
+                        entryId = existing.id
+                        bytesUp = existing.bytesUp
+                        bytesDown = existing.bytesDown
+                        connectionCount = existing.connectionCount + 1
+                        coalesceKey = coalesceLookupKey
+                        context.repository.update(
+                            existing.copy(
+                                timestamp = System.currentTimeMillis(),
+                                connectionCount = connectionCount
+                            )
                         )
-                    )
+                    } else {
+                        // Claim edilecek satır yok (ya penceresi geçmiş, ya aynı anda başka
+                        // bir bağlantı zaten devraldı, ya da domain henüz bilinmiyor): yeni
+                        // satır aç. Domain biliniyorsa bu satırı ileride başkalarının
+                        // devralabilmesi için coalesceKey'i tutuyoruz.
+                        coalesceKey = coalesceLookupKey
+                        entryId = context.repository.insert(
+                            TrafficEntry(
+                                appPackageName = app.packageName,
+                                appLabel = app.label,
+                                domain = domain,
+                                destIp = remoteAddress.hostAddress ?: "",
+                                destPort = remotePort,
+                                protocol = Protocol.TCP,
+                                bytesUp = 0,
+                                bytesDown = 0,
+                                timestamp = System.currentTimeMillis(),
+                                direction = Direction.OUT,
+                                connectionCount = connectionCount
+                            )
+                        )
+                    }
                 }
 
                 startReadLoop(s)
@@ -368,7 +400,8 @@ class TcpNat(private val context: RelayContext) {
                         bytesUp = finalBytesUp,
                         bytesDown = finalBytesDown,
                         timestamp = System.currentTimeMillis(),
-                        direction = Direction.OUT
+                        direction = Direction.OUT,
+                        connectionCount = connectionCount
                     )
                 )
             }
@@ -378,6 +411,11 @@ class TcpNat(private val context: RelayContext) {
             if (state == State.CLOSED) return
             state = State.CLOSED
             persist()
+            // Satır bir domain'e bağlıysa ve engellenmediyse, kısa bir süreliğine başka bir
+            // oturumun devralabilmesi için "serbest" bırak - bkz. RelayContext.
+            if (!blocked && entryId > 0) {
+                coalesceKey?.let { context.releaseCoalesceTarget(it, entryId) }
+            }
             try {
                 socket?.close()
             } catch (e: Exception) {

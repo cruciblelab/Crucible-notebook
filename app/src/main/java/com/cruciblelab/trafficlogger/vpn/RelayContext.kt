@@ -57,6 +57,41 @@ class RelayContext(
         return allowed
     }
 
+    // --- İzin verilen bağlantılar için "coalesce" (satır birleştirme) ---
+    //
+    // shouldLogBlockedAttempt yalnızca ENGELLENEN bağlantıları throttle ediyordu; İZİN
+    // VERİLEN bağlantılar için hiçbir sınırlama yoktu. TikTok gibi bir CDN üzerinden video
+    // akışı yapan uygulamalar aynı domain'e (aynı ASN altında, farklı edge IP'lerinde)
+    // saniyeler içinde onlarca/yüzlerce kısa TCP/UDP bağlantısı açabiliyor - her biri kendi
+    // TrafficEntry satırını oluşturduğu için kısa sürede on binlerce satır birikiyordu.
+    //
+    // Çözüm: bir (uygulama, domain) çifti için bir bağlantı kapandığında satırı bir süreliğine
+    // "claim edilebilir" olarak işaretle (releaseCoalesceTarget). Aynı çift [CONNECT_COALESCE_
+    // WINDOW_MS] içinde yeniden bağlanırsa (claimCoalesceTarget), yeni satır açmak yerine o
+    // satırı devralır ve üstüne ekler (bkz. TcpNat/UdpNat - entry.connectionCount artar).
+    //
+    // Yarış koşulu olmaz: claim edilen anahtar map'ten SİLİNİR, yalnızca sahibi kapanışta
+    // release ettiğinde geri konur - yani bir satırı aynı anda en fazla TEK bir canlı oturum
+    // yazabilir; ikinci bir eşzamanlı bağlantı (örn. gerçekten paralel iki video parçası)
+    // claim bulamaz ve normal şekilde kendi yeni satırını açar.
+    private data class CoalesceSlot(val entryId: Long, val closedAt: Long)
+    private val coalesceSlots = java.util.concurrent.ConcurrentHashMap<String, CoalesceSlot>()
+
+    fun coalesceKeyFor(appPackageName: String, domain: String, protocol: Int): String =
+        "$appPackageName|$domain|$protocol"
+
+    /** Kısa süre önce kapanmış, yeniden kullanılabilir bir satır varsa onun id'sini döndürür. */
+    fun claimCoalesceTarget(key: String): Long? {
+        val slot = coalesceSlots.remove(key) ?: return null
+        val now = System.currentTimeMillis()
+        return if (now - slot.closedAt < CONNECT_COALESCE_WINDOW_MS) slot.entryId else null
+    }
+
+    /** Bir oturum kapanırken, satırını kısa bir süreliğine yeniden kullanıma açar. */
+    fun releaseCoalesceTarget(key: String, entryId: Long) {
+        coalesceSlots[key] = CoalesceSlot(entryId, System.currentTimeMillis())
+    }
+
     fun protectDatagram(socket: DatagramSocket): Boolean = vpnService.protect(socket)
 
     fun protectStream(socket: Socket): Boolean = vpnService.protect(socket)
@@ -121,5 +156,8 @@ class RelayContext(
         private const val UID_LOOKUP_MAX_ATTEMPTS = 4
         private const val UID_LOOKUP_RETRY_DELAY_MS = 4L
         private const val BLOCKED_LOG_THROTTLE_MS = 60_000L
+
+        /** Aynı (uygulama, domain) çifti bu süre içinde yeniden bağlanırsa satır birleştirilir. */
+        const val CONNECT_COALESCE_WINDOW_MS = 15_000L
     }
 }

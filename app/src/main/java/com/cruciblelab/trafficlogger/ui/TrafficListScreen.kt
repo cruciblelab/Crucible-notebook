@@ -564,6 +564,14 @@ private fun TrafficRow(
                                 color = AccentCoral
                             )
                         }
+                        if (entry.connectionCount > 1) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                "×${entry.connectionCount}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextTertiary
+                            )
+                        }
                     }
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(

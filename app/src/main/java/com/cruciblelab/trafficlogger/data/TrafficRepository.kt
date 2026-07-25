@@ -11,6 +11,8 @@ class TrafficRepository(
 
     fun observeById(id: Long) = dao.observeById(id)
 
+    suspend fun getByIdOnce(id: Long) = dao.getByIdOnce(id)
+
     fun observeConnectionHistory(packageName: String, domain: String?, destIp: String) =
         dao.observeConnectionHistory(packageName, domain, destIp)
 

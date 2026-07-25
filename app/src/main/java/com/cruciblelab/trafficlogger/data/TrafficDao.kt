@@ -22,6 +22,14 @@ interface TrafficDao {
     @Query("SELECT * FROM traffic_entries WHERE id = :id")
     fun observeById(id: Long): Flow<TrafficEntry?>
 
+    /**
+     * [observeById]'nin Flow olmayan, tek seferlik hâli - coalesce (satır birleştirme)
+     * mantığı bir satırı yeniden kullanmadan önce mevcut byte/bağlantı sayısını okumak için
+     * kullanır.
+     */
+    @Query("SELECT * FROM traffic_entries WHERE id = :id")
+    suspend fun getByIdOnce(id: Long): TrafficEntry?
+
     @Query(
         "SELECT * FROM traffic_entries WHERE appPackageName = :packageName " +
             "AND ifnull(domain, '') = ifnull(:domain, '') AND destIp = :destIp " +
