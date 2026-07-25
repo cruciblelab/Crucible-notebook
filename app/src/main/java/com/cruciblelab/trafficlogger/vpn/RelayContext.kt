@@ -30,6 +30,33 @@ class RelayContext(
     fun isBlocked(appPackageName: String, domain: String?, destIp: String): Boolean =
         ruleMatcher.isBlocked(appPackageName, domain, destIp)
 
+    // (app, hedef, port) başına en son ne zaman bir "engellendi" satırı DB'ye yazıldığını
+    // tutar. Engellenen bir uygulama (örn. TikTok gibi arka planda ısrarla yeniden bağlanan
+    // bir uygulama) saniyede onlarca kez deneyebilir - özellikle UDP/QUIC'te her deneme yeni
+    // bir efemeral porttan geldiği için oturum anahtarı hep farklı olur ve ESKİDEN her tekil
+    // deneme kendi TrafficEntry satırını açıyordu (kısa sürede on binlerce satır → hem veritabanı
+    // şişiyor hem İstatistikler ekranındaki sayılar anlamsız kocaman rakamlara çıkıyordu).
+    // Şimdi aynı (app, hedef, port) için [BLOCKED_LOG_THROTTLE_MS] içinde en fazla BİR satır
+    // yazılıyor - engelleme davranışının kendisi (sendRst / bağlantı reddi) bundan etkilenmiyor,
+    // sadece "her denemeyi ayrı ayrı DB'ye logla" davranışı "periyodik olarak bir kez logla"
+    // haline geliyor.
+    private val lastBlockedLogAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
+    fun shouldLogBlockedAttempt(appPackageName: String, domain: String?, destIp: String, destPort: Int): Boolean {
+        val key = "$appPackageName|${domain ?: destIp}|$destPort"
+        val now = System.currentTimeMillis()
+        var allowed = false
+        lastBlockedLogAt.compute(key) { _, last ->
+            if (last == null || now - last >= BLOCKED_LOG_THROTTLE_MS) {
+                allowed = true
+                now
+            } else {
+                last
+            }
+        }
+        return allowed
+    }
+
     fun protectDatagram(socket: DatagramSocket): Boolean = vpnService.protect(socket)
 
     fun protectStream(socket: Socket): Boolean = vpnService.protect(socket)
@@ -93,5 +120,6 @@ class RelayContext(
         private const val INVALID_UID = -1
         private const val UID_LOOKUP_MAX_ATTEMPTS = 4
         private const val UID_LOOKUP_RETRY_DELAY_MS = 4L
+        private const val BLOCKED_LOG_THROTTLE_MS = 60_000L
     }
 }

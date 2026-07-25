@@ -75,7 +75,12 @@ class UdpNat(private val context: RelayContext) {
             // 53) are checked per-query in sendToRemote once the question name is known.
             if (remotePort != 53 && context.isBlocked(app.packageName, domain, remoteAddress.hostAddress ?: "")) {
                 blocked = true
-                logEntry(app)
+                // Her deneme değil, (app, hedef, port) başına aralıklı bir satır - bkz.
+                // RelayContext.shouldLogBlockedAttempt. Aksi halde her yeni efemeral UDP
+                // portundan (örn. QUIC yeniden bağlanmaları) ayrı bir DB satırı açılırdı.
+                if (context.shouldLogBlockedAttempt(app.packageName, domain, remoteAddress.hostAddress ?: "", remotePort)) {
+                    logEntry(app)
+                }
                 return
             }
 

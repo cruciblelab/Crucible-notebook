@@ -102,22 +102,26 @@ class TcpNat(private val context: RelayContext) {
 
                 if (context.isBlocked(app.packageName, domain, remoteAddress.hostAddress ?: "")) {
                     blocked = true
-                    context.scope.launch {
-                        context.repository.insert(
-                            TrafficEntry(
-                                appPackageName = app.packageName,
-                                appLabel = app.label,
-                                domain = domain,
-                                destIp = remoteAddress.hostAddress ?: "",
-                                destPort = remotePort,
-                                protocol = Protocol.TCP,
-                                bytesUp = 0,
-                                bytesDown = 0,
-                                timestamp = System.currentTimeMillis(),
-                                direction = Direction.OUT,
-                                blocked = true
+                    // Her deneme değil, (app, hedef, port) başına aralıklı bir satır - bkz.
+                    // RelayContext.shouldLogBlockedAttempt.
+                    if (context.shouldLogBlockedAttempt(app.packageName, domain, remoteAddress.hostAddress ?: "", remotePort)) {
+                        context.scope.launch {
+                            context.repository.insert(
+                                TrafficEntry(
+                                    appPackageName = app.packageName,
+                                    appLabel = app.label,
+                                    domain = domain,
+                                    destIp = remoteAddress.hostAddress ?: "",
+                                    destPort = remotePort,
+                                    protocol = Protocol.TCP,
+                                    bytesUp = 0,
+                                    bytesDown = 0,
+                                    timestamp = System.currentTimeMillis(),
+                                    direction = Direction.OUT,
+                                    blocked = true
+                                )
                             )
-                        )
+                        }
                     }
                     // Reject immediately rather than blackholing, so the app fails fast
                     // instead of waiting out a connect timeout.
