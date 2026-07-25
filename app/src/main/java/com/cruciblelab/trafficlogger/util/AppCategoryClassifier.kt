@@ -18,7 +18,18 @@ object AppCategoryClassifier {
         packageName: String,
         isSystemApp: Boolean,
         activeVerdicts: List<PackageVerdict>,
-        signatureMismatch: Boolean = false
+        signatureMismatch: Boolean = false,
+        /**
+         * Paket Play Store'dan mı kuruldu (bkz. [PackageClassifier.isInstalledFromTrustedStore]).
+         * Bir TRUSTED eşleşmesi (özellikle PREFIX tabanlı geniş kurallar - "com.microsoft." gibi)
+         * yalnızca paket ADINA bakar; sideload edilmiş bir APK aynı adı taklit edebilir. Bu yüzden
+         * TRUSTED rozeti yalnızca mağaza doğrulamalı kurulumlarda gösterilir - sideload edilmiş
+         * bir eşleşme sessizce güvenilir sayılmaz, UNKNOWN'a düşer (kullanıcı isterse kendi özel
+         * veritabanıyla elle işaretleyebilir). Varsayılan true: bu parametreyi geçmeyen eski
+         * çağrı yerleri davranışı aniden değiştirmesin diye - ama [MainViewModel] artık gerçek
+         * değeri geçiyor.
+         */
+        installedFromTrustedStore: Boolean = true
     ): Category {
         val match = activeVerdicts.firstOrNull { entry -> matches(entry, packageName) }
         return when {
@@ -29,7 +40,7 @@ object AppCategoryClassifier {
             signatureMismatch -> Category.SIGNATURE_MISMATCH
             match?.verdict == ReputationVerdict.FLAGGED -> Category.FLAGGED
             isSystemApp -> Category.SYSTEM
-            match?.verdict == ReputationVerdict.TRUSTED -> Category.TRUSTED
+            match?.verdict == ReputationVerdict.TRUSTED && installedFromTrustedStore -> Category.TRUSTED
             else -> Category.UNKNOWN
         }
     }

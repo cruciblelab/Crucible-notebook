@@ -35,6 +35,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cruciblelab.trafficlogger.R
 import com.cruciblelab.trafficlogger.ui.theme.TextSecondary
+import com.cruciblelab.trafficlogger.ui.theme.CardShapeMedium
+import com.cruciblelab.trafficlogger.ui.theme.CardShapeSmall
 
 private val RETENTION_OPTIONS = listOf(1, 7, 30)
 
@@ -155,7 +157,7 @@ fun SettingsScreen(
 
                 OutlinedButton(
                     modifier = Modifier.padding(top = 28.dp),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = CardShapeSmall,
                     onClick = onClearHistory
                 ) {
                     Text("Tüm kayıtları temizle")
@@ -169,7 +171,7 @@ fun SettingsScreen(
 private fun InfoCard(text: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = CardShapeMedium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {

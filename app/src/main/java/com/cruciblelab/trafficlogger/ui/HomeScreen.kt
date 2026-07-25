@@ -64,6 +64,18 @@ import com.cruciblelab.trafficlogger.ui.theme.AccentViolet
 import com.cruciblelab.trafficlogger.ui.theme.AvatarPalette
 import com.cruciblelab.trafficlogger.ui.theme.TextSecondary
 import com.cruciblelab.trafficlogger.ui.theme.TextTertiary
+import com.cruciblelab.trafficlogger.ui.theme.CardShapeLarge
+import com.cruciblelab.trafficlogger.ui.theme.CardShapeMedium
+import com.cruciblelab.trafficlogger.data.CompanyProtectionState
+import com.cruciblelab.trafficlogger.data.IpInfoCache
+import com.cruciblelab.trafficlogger.data.NetworkProfile
+import com.cruciblelab.trafficlogger.data.TrackerCatalog
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import com.cruciblelab.trafficlogger.util.AppCategoryClassifier
 import com.cruciblelab.trafficlogger.util.formatBytes
 import com.cruciblelab.trafficlogger.util.formatTimestamp
@@ -80,10 +92,10 @@ fun HomeScreen(
     summary: HomeSummary,
     vpnRunning: Boolean,
     onToggleVpn: () -> Unit,
-    companyProtectionStates: Map<String, com.cruciblelab.trafficlogger.data.CompanyProtectionState>,
-    onSetTrackingBlocked: (com.cruciblelab.trafficlogger.data.TrackerCatalog.Company, Boolean) -> Unit,
-    onSetFullyBlocked: (com.cruciblelab.trafficlogger.data.TrackerCatalog.Company, Boolean) -> Unit,
-    ipInfoMap: Map<String, com.cruciblelab.trafficlogger.data.IpInfoCache>,
+    companyProtectionStates: Map<String, CompanyProtectionState>,
+    onSetTrackingBlocked: (TrackerCatalog.Company, Boolean) -> Unit,
+    onSetFullyBlocked: (TrackerCatalog.Company, Boolean) -> Unit,
+    ipInfoMap: Map<String, IpInfoCache>,
     onRequestIpInfo: (String) -> Unit,
     onQuickBlockDomain: (String) -> Unit,
     onOpenList: () -> Unit,
@@ -93,7 +105,7 @@ fun HomeScreen(
     onOpenReputation: () -> Unit,
     onOpenProfiles: () -> Unit,
     onOpenSettings: () -> Unit,
-    activeProfile: com.cruciblelab.trafficlogger.data.NetworkProfile? = null
+    activeProfile: NetworkProfile? = null
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -121,7 +133,7 @@ fun HomeScreen(
             item { InsightCard(summary = summary, onOpenList = onOpenList, onOpenReputation = onOpenReputation) }
             item {
                 Card(
-                    shape = RoundedCornerShape(20.dp),
+                    shape = CardShapeLarge,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
@@ -177,7 +189,7 @@ fun HomeScreen(
             } else {
                 item {
                     Card(
-                        shape = RoundedCornerShape(20.dp),
+                        shape = CardShapeLarge,
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
@@ -210,7 +222,7 @@ fun HomeScreen(
 private fun ActiveProfileBanner(profileName: String, onOpenProfiles: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().clickableNoRipple(onOpenProfiles),
-        shape = RoundedCornerShape(16.dp),
+        shape = CardShapeMedium,
         colors = CardDefaults.cardColors(containerColor = AccentViolet.copy(alpha = 0.12f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -238,23 +250,23 @@ private fun ActiveProfileBanner(profileName: String, onOpenProfiles: () -> Unit)
  */
 @Composable
 private fun PrivacyControlsCard(
-    companyProtectionStates: Map<String, com.cruciblelab.trafficlogger.data.CompanyProtectionState>,
-    onSetTrackingBlocked: (com.cruciblelab.trafficlogger.data.TrackerCatalog.Company, Boolean) -> Unit,
-    onSetFullyBlocked: (com.cruciblelab.trafficlogger.data.TrackerCatalog.Company, Boolean) -> Unit
+    companyProtectionStates: Map<String, CompanyProtectionState>,
+    onSetTrackingBlocked: (TrackerCatalog.Company, Boolean) -> Unit,
+    onSetFullyBlocked: (TrackerCatalog.Company, Boolean) -> Unit
 ) {
-    var fullBlockCandidate by androidx.compose.runtime.remember {
-        androidx.compose.runtime.mutableStateOf<com.cruciblelab.trafficlogger.data.TrackerCatalog.Company?>(null)
+    var fullBlockCandidate by remember {
+        mutableStateOf<TrackerCatalog.Company?>(null)
     }
 
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = CardShapeLarge,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(6.dp)) {
-            com.cruciblelab.trafficlogger.data.TrackerCatalog.ALL.forEachIndexed { index, company ->
+            TrackerCatalog.ALL.forEachIndexed { index, company ->
                 val state = companyProtectionStates[company.key]
-                    ?: com.cruciblelab.trafficlogger.data.CompanyProtectionState(trackingBlocked = false, fullyBlocked = false)
+                    ?: CompanyProtectionState(trackingBlocked = false, fullyBlocked = false)
                 TrackerCompanyRow(
                     company = company,
                     state = state,
@@ -263,7 +275,7 @@ private fun PrivacyControlsCard(
                         if (requestOn) fullBlockCandidate = company else onSetFullyBlocked(company, false)
                     }
                 )
-                if (index != com.cruciblelab.trafficlogger.data.TrackerCatalog.ALL.lastIndex) {
+                if (index != TrackerCatalog.ALL.lastIndex) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.background)
                 }
             }
@@ -271,7 +283,7 @@ private fun PrivacyControlsCard(
     }
 
     fullBlockCandidate?.let { company ->
-        androidx.compose.material3.AlertDialog(
+        AlertDialog(
             onDismissRequest = { fullBlockCandidate = null },
             title = { Text("${company.title} tamamen engellensin mi?") },
             text = {
@@ -282,13 +294,13 @@ private fun PrivacyControlsCard(
                 )
             },
             confirmButton = {
-                androidx.compose.material3.TextButton(onClick = {
+                TextButton(onClick = {
                     onSetFullyBlocked(company, true)
                     fullBlockCandidate = null
                 }) { Text("Tamamen Engelle", color = AccentCritical) }
             },
             dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { fullBlockCandidate = null }) { Text("Vazgeç") }
+                TextButton(onClick = { fullBlockCandidate = null }) { Text("Vazgeç") }
             }
         )
     }
@@ -296,12 +308,12 @@ private fun PrivacyControlsCard(
 
 @Composable
 private fun TrackerCompanyRow(
-    company: com.cruciblelab.trafficlogger.data.TrackerCatalog.Company,
-    state: com.cruciblelab.trafficlogger.data.CompanyProtectionState,
+    company: TrackerCatalog.Company,
+    state: CompanyProtectionState,
     onSetTrackingBlocked: (Boolean) -> Unit,
     onRequestFullBlock: (Boolean) -> Unit
 ) {
-    var expanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var expanded by remember { mutableStateOf(false) }
     val allowed = !state.trackingBlocked
     Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -321,7 +333,7 @@ private fun TrackerCompanyRow(
                     )
                 }
             }
-            androidx.compose.material3.Switch(checked = allowed, onCheckedChange = { onSetTrackingBlocked(!it) })
+            Switch(checked = allowed, onCheckedChange = { onSetTrackingBlocked(!it) })
         }
         Row(
             modifier = Modifier
@@ -366,7 +378,7 @@ private fun TrackerCompanyRow(
                                 color = TextTertiary
                             )
                         }
-                        androidx.compose.material3.Switch(
+                        Switch(
                             checked = state.fullyBlocked,
                             onCheckedChange = onRequestFullBlock
                         )
@@ -386,18 +398,18 @@ private fun TrackerCompanyRow(
 @Composable
 private fun OtherSourcesCard(
     domains: List<ObservedOtherDomain>,
-    ipInfoMap: Map<String, com.cruciblelab.trafficlogger.data.IpInfoCache>,
+    ipInfoMap: Map<String, IpInfoCache>,
     onRequestIpInfo: (String) -> Unit,
     onQuickBlockDomain: (String) -> Unit
 ) {
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = CardShapeLarge,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(6.dp)) {
             domains.forEachIndexed { index, item ->
-                androidx.compose.runtime.LaunchedEffect(item.destIp) { onRequestIpInfo(item.destIp) }
+                LaunchedEffect(item.destIp) { onRequestIpInfo(item.destIp) }
                 val info = ipInfoMap[item.destIp]
                 val orgMatch = info?.let {
                     com.cruciblelab.trafficlogger.util.KnownOrgCategorizer.categorize(it.org, it.isp)
@@ -438,7 +450,7 @@ private fun OtherSourcesCard(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    androidx.compose.material3.TextButton(onClick = { onQuickBlockDomain(item.domain) }) {
+                    TextButton(onClick = { onQuickBlockDomain(item.domain) }) {
                         Text("Engelle", color = AccentCoral)
                     }
                 }
@@ -461,7 +473,7 @@ private fun VpnStatusCard(vpnRunning: Boolean, onToggleVpn: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .then(Modifier),
-        shape = RoundedCornerShape(20.dp),
+        shape = CardShapeLarge,
         colors = CardDefaults.cardColors(
             containerColor = if (vpnRunning) AccentMint.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface
         ),
@@ -548,7 +560,7 @@ private fun InsightCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = CardShapeLarge,
         colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = 0.10f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -585,7 +597,7 @@ private fun BlockedTodayCard(
     onOpenBlockedList: () -> Unit
 ) {
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = CardShapeLarge,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -729,7 +741,7 @@ private fun QuickNavCard(
 ) {
     Card(
         modifier = modifier.clickableNoRipple(onClick),
-        shape = RoundedCornerShape(16.dp),
+        shape = CardShapeMedium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {

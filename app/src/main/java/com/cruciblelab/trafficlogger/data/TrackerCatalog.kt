@@ -84,12 +84,36 @@ object TrackerCatalog {
                 "ads.tiktok.com",
                 "log.byteoversea.com"
             ),
+            // NOT: bu liste eskiden yalnızca 5 domain içeriyordu (tiktok.com, musical.ly,
+            // byteoversea.com, ibytedtos.com, ibyteimg.com) - TikTok uygulaması bunların
+            // HİÇBİRİNE ait olmayan, tamamen ayrı apex domain'lere de bağlanıyor (video/CDN
+            // ve API trafiği için). RuleMatcher bir domain'i yalnızca listedeki domain'in
+            // kendisi ya da alt-domaini ise eşleştirdiğinden (bkz. RuleMatcher.matches),
+            // eksik bir apex domain o domain'e giden TÜM trafiğin "tamamen engelle"
+            // açıkken bile serbest kalması demekti - "tamamen engellensin dedim ama hala
+            // çalışıyor" şikayetinin kök nedeni buydu.
             fullBlockDomains = listOf(
                 "tiktok.com",
                 "musical.ly",
                 "byteoversea.com",
                 "ibytedtos.com",
-                "ibyteimg.com"
+                "ibyteimg.com",
+                "tiktokv.com",
+                "tiktokv.us",
+                "tiktokcdn.com",
+                "tiktokcdn-us.com",
+                "tiktokrow-cdn.com",
+                "muscdn.com",
+                "musemuse.co",
+                "isnssdk.com",
+                "sgsnssdk.com",
+                "bytefcdn-oversea.com",
+                "bytefcdn-ttpub.com",
+                "pstatp.com",
+                "amemv.com",
+                "toutiao.com",
+                "bdurl.com",
+                "bytedapm.com"
             )
         ),
         Company(

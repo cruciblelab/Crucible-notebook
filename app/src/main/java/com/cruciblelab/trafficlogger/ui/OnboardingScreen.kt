@@ -54,6 +54,7 @@ import com.cruciblelab.trafficlogger.ui.theme.AccentAmber
 import com.cruciblelab.trafficlogger.ui.theme.AccentMint
 import com.cruciblelab.trafficlogger.ui.theme.AccentViolet
 import com.cruciblelab.trafficlogger.ui.theme.TextSecondary
+import com.cruciblelab.trafficlogger.ui.theme.CardShapeMedium
 
 /**
  * Tek problem odaklı kurulum akışı: "Neden bu izni istiyoruz" -> izni ver -> (varsa) Xiaomi/MIUI
@@ -208,7 +209,7 @@ private fun VpnPermissionStep() {
         )
         Spacer(modifier = Modifier.height(10.dp))
         Card(
-            shape = RoundedCornerShape(16.dp),
+            shape = CardShapeMedium,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {

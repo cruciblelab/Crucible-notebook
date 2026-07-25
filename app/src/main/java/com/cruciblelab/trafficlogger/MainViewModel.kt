@@ -325,7 +325,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             packageName = packageName,
             isSystemApp = app.packageClassifier.isSystemApp(packageName),
             activeVerdicts = activeReputationVerdicts.value,
-            signatureMismatch = mismatchedPackages.value.contains(packageName)
+            signatureMismatch = mismatchedPackages.value.contains(packageName),
+            installedFromTrustedStore = app.packageClassifier.isInstalledFromTrustedStore(packageName)
         )
     }
 
@@ -344,7 +345,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 pkg,
                 app.packageClassifier.isSystemApp(pkg),
                 verdicts,
-                signatureMismatch = mismatches.contains(pkg)
+                signatureMismatch = mismatches.contains(pkg),
+                installedFromTrustedStore = app.packageClassifier.isInstalledFromTrustedStore(pkg)
             )
             TopAppUsage(pkg, label, bytes, category)
         }

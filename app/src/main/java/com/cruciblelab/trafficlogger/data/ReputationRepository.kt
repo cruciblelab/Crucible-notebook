@@ -40,7 +40,10 @@ class ReputationRepository(
     /** @return kaç giriş içe aktarıldığı. Format hatalıysa exception fırlatır. */
     suspend fun importCustom(name: String, description: String, json: String): Int =
         importInternal(
-            key = "custom_${System.currentTimeMillis()}",
+            // UUID kullanılıyor - System.currentTimeMillis() aynı milisaniyede art arda iki
+            // içe aktarma yapılırsa (örn. bir script'ten toplu import) key çakışması riski
+            // taşırdı; UUID bu riski tamamen ortadan kaldırır.
+            key = "custom_${java.util.UUID.randomUUID()}",
             name = name,
             description = description,
             isPreset = false,

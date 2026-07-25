@@ -55,6 +55,7 @@ import com.cruciblelab.trafficlogger.ui.theme.AccentCoral
 import com.cruciblelab.trafficlogger.ui.theme.AccentMint
 import com.cruciblelab.trafficlogger.ui.theme.TextSecondary
 import com.cruciblelab.trafficlogger.ui.theme.TextTertiary
+import com.cruciblelab.trafficlogger.ui.theme.CardShapeMedium
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -153,7 +154,7 @@ private fun RuleRow(rule: BlockRule, onDelete: () -> Unit) {
     val isBlack = rule.type == RuleType.BLACKLIST
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = CardShapeMedium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {

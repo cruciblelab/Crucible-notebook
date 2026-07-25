@@ -75,6 +75,8 @@ import com.cruciblelab.trafficlogger.ui.theme.AccentCoral
 import com.cruciblelab.trafficlogger.ui.theme.AvatarPalette
 import com.cruciblelab.trafficlogger.ui.theme.TextSecondary
 import com.cruciblelab.trafficlogger.ui.theme.TextTertiary
+import com.cruciblelab.trafficlogger.ui.theme.CardShapeLarge
+import com.cruciblelab.trafficlogger.ui.theme.CardShapeSmall
 import com.cruciblelab.trafficlogger.util.countryFlagEmoji
 import com.cruciblelab.trafficlogger.util.formatBytes
 import com.cruciblelab.trafficlogger.util.formatTimestamp
@@ -216,7 +218,7 @@ fun TrafficListScreen(
                         }
                     }
                 },
-                shape = RoundedCornerShape(14.dp)
+                shape = CardShapeSmall
             )
 
             if (appNames.isNotEmpty()) {
@@ -366,7 +368,7 @@ private fun FilterSortSheet(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(CardShapeSmall)
                             .clickable { onSortChange(option) }
                             .padding(vertical = 10.dp, horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -414,7 +416,7 @@ private fun StatusCard(vpnRunning: Boolean, onToggleVpn: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(20.dp),
+        shape = CardShapeLarge,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -514,7 +516,7 @@ private fun TrafficRow(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(onClick = onClick, onLongClick = { menuOpen = true }),
-        shape = RoundedCornerShape(18.dp),
+        shape = CardShapeLarge,
         colors = CardDefaults.cardColors(
             containerColor = if (entry.blocked) AccentCoral.copy(alpha = 0.06f) else MaterialTheme.colorScheme.surface
         ),

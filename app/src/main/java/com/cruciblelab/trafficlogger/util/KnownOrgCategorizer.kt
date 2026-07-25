@@ -27,6 +27,13 @@ object KnownOrgCategorizer {
         // görünümle göstermemeli.
         CLOUD_HOSTING("Bulut / Barındırma Devi", sharedInfrastructure = true),
         CDN("İçerik Dağıtım Ağı (CDN)", sharedInfrastructure = true),
+        // sharedInfrastructure = true: bir VPN sağlayıcısının çıkış IP'si de tıpkı bulut/CDN
+        // gibi paylaşımlıdır - o IP'den trafik görmek yalnızca "birileri bu VPN'i kullanıyor"
+        // demektir, trafiğin kaynağının/sahibinin o VPN şirketi ya da güvenilir olduğu
+        // anlamına GELMEZ. Kötü amaçlı bir uygulama, gerçek hedefini gizlemek için tam da
+        // bilinen/itibarlı bir VPN sağlayıcısının altyapısını kullanabilir - bu kategori bunu
+        // "onaylı" gibi göstermemek için var.
+        VPN_PROVIDER("VPN Sağlayıcısı (paylaşımlı çıkış)", sharedInfrastructure = true),
         SOCIAL_MESSAGING("Sosyal Medya / Mesajlaşma", sharedInfrastructure = false),
         DEVICE_OEM("Cihaz Üreticisi Servisi", sharedInfrastructure = false),
         OTHER_MAJOR("Bilinen Büyük Şirket", sharedInfrastructure = false)
@@ -68,6 +75,20 @@ object KnownOrgCategorizer {
         Triple("huawei", "Huawei", Category.DEVICE_OEM),
         Triple("oppo", "OPPO", Category.DEVICE_OEM),
         Triple("apple", "Apple", Category.DEVICE_OEM),
+
+        // Bilinen büyük VPN sağlayıcıları - eşleşme "bu trafiğin bir VPN çıkışından geldiği"
+        // demektir, hedefin kendisinin veya barındırdığı uygulamanın güvenilir olduğu anlamına
+        // GELMEZ (bkz. Category.VPN_PROVIDER dokümanı).
+        Triple("nordvpn", "NordVPN", Category.VPN_PROVIDER),
+        Triple("expressvpn", "ExpressVPN", Category.VPN_PROVIDER),
+        Triple("surfshark", "Surfshark", Category.VPN_PROVIDER),
+        Triple("protonvpn", "ProtonVPN", Category.VPN_PROVIDER),
+        Triple("proton ag", "ProtonVPN", Category.VPN_PROVIDER),
+        Triple("mullvad", "Mullvad", Category.VPN_PROVIDER),
+        Triple("private internet access", "Private Internet Access", Category.VPN_PROVIDER),
+        Triple("windscribe", "Windscribe", Category.VPN_PROVIDER),
+        Triple("m247", "M247 (birçok VPN'in altyapısı)", Category.VPN_PROVIDER),
+        Triple("datacamp", "DataCamp (birçok VPN'in altyapısı)", Category.VPN_PROVIDER),
 
         Triple("netflix", "Netflix", Category.OTHER_MAJOR),
         Triple("valve", "Valve / Steam", Category.OTHER_MAJOR),

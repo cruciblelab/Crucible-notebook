@@ -53,6 +53,8 @@ import com.cruciblelab.trafficlogger.ui.theme.AccentMint
 import com.cruciblelab.trafficlogger.util.KnownOrgCategorizer
 import com.cruciblelab.trafficlogger.ui.theme.TextSecondary
 import com.cruciblelab.trafficlogger.ui.theme.TextTertiary
+import com.cruciblelab.trafficlogger.ui.theme.CardShapeLarge
+import com.cruciblelab.trafficlogger.ui.theme.CardShapeSmall
 import com.cruciblelab.trafficlogger.util.countryFlagEmoji
 import com.cruciblelab.trafficlogger.util.formatBytes
 import com.cruciblelab.trafficlogger.util.formatTimestamp
@@ -136,7 +138,7 @@ fun TrafficDetailScreen(
                     val domain = entry.domain
                     Button(
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = CardShapeSmall,
                         enabled = domain != null,
                         onClick = {
                             if (domain != null) {
@@ -149,7 +151,7 @@ fun TrafficDetailScreen(
 
                     OutlinedButton(
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = CardShapeSmall,
                         onClick = {
                             context.startActivity(
                                 Intent(
@@ -194,7 +196,7 @@ fun TrafficDetailScreen(
 private fun SoftCard(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = CardShapeLarge,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {

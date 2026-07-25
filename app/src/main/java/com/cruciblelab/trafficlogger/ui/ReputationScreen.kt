@@ -62,6 +62,7 @@ import com.cruciblelab.trafficlogger.ui.theme.AccentMint
 import com.cruciblelab.trafficlogger.ui.theme.AccentViolet
 import com.cruciblelab.trafficlogger.ui.theme.TextSecondary
 import com.cruciblelab.trafficlogger.ui.theme.TextTertiary
+import com.cruciblelab.trafficlogger.ui.theme.CardShapeMedium
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -150,7 +151,7 @@ fun ReputationScreen(
             item { SectionLabel("Özel veritabanı içe aktar") }
             item {
                 Card(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = CardShapeMedium,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
@@ -216,7 +217,7 @@ fun ReputationScreen(
 @Composable
 private fun ReputationDisclaimerCard() {
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = CardShapeMedium,
         colors = CardDefaults.cardColors(containerColor = AccentAmber.copy(alpha = 0.12f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -244,7 +245,7 @@ private fun PresetCard(
     onLoad: () -> Unit
 ) {
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = CardShapeMedium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -274,7 +275,7 @@ private fun SourceCard(
     onDelete: () -> Unit
 ) {
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = CardShapeMedium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {

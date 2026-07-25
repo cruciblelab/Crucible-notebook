@@ -70,6 +70,7 @@ import com.cruciblelab.trafficlogger.ui.theme.AccentMint
 import com.cruciblelab.trafficlogger.ui.theme.AccentViolet
 import com.cruciblelab.trafficlogger.ui.theme.TextSecondary
 import com.cruciblelab.trafficlogger.ui.theme.TextTertiary
+import com.cruciblelab.trafficlogger.ui.theme.CardShapeMedium
 import com.cruciblelab.trafficlogger.util.ResolvedApp
 import kotlinx.coroutines.launch
 
@@ -273,7 +274,7 @@ fun ProfilesScreen(
 @Composable
 private fun ProfilesDisclaimerCard() {
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = CardShapeMedium,
         colors = CardDefaults.cardColors(containerColor = AccentAmber.copy(alpha = 0.12f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -300,7 +301,7 @@ private fun SectionLabel(text: String) {
 @Composable
 private fun ActiveProfileCard(activeProfile: NetworkProfile?, onDeactivate: () -> Unit) {
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = CardShapeMedium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -345,7 +346,7 @@ private fun ProfileCard(
     val labelsByPackage = remember(installedApps) { installedApps.associateBy({ it.packageName }, { it.label }) }
 
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = CardShapeMedium,
         colors = CardDefaults.cardColors(
             containerColor = if (isActive) AccentViolet.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surface
         ),

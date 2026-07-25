@@ -47,11 +47,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.cruciblelab.trafficlogger.data.TrafficEntry
+import com.cruciblelab.trafficlogger.data.IpInfoCache
+import com.cruciblelab.trafficlogger.data.TrackerCatalog
 import com.cruciblelab.trafficlogger.ui.theme.AccentCoral
 import com.cruciblelab.trafficlogger.ui.theme.AccentViolet
 import com.cruciblelab.trafficlogger.ui.theme.AvatarPalette
 import com.cruciblelab.trafficlogger.ui.theme.TextSecondary
 import com.cruciblelab.trafficlogger.ui.theme.TextTertiary
+import com.cruciblelab.trafficlogger.ui.theme.CardShapeLarge
 import com.cruciblelab.trafficlogger.util.formatBytes
 import com.cruciblelab.trafficlogger.util.startOfDayMillis
 import java.text.SimpleDateFormat
@@ -118,7 +121,7 @@ private fun buildTimelineBuckets(entries: List<TrafficEntry>, granularity: Timel
 @Composable
 fun StatsScreen(
     entries: List<TrafficEntry>,
-    ipInfoMap: Map<String, com.cruciblelab.trafficlogger.data.IpInfoCache>,
+    ipInfoMap: Map<String, IpInfoCache>,
     onBack: () -> Unit
 ) {
     val totalBytes = remember(entries) { entries.sumOf { it.bytesUp + it.bytesDown } }
@@ -212,7 +215,7 @@ private fun TimelineChart(
     onGranularityChange: (TimelineGranularity) -> Unit
 ) {
     Card(
-        shape = RoundedCornerShape(18.dp),
+        shape = CardShapeLarge,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -290,7 +293,7 @@ private fun SummaryCard(
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
+        shape = CardShapeLarge,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -310,7 +313,7 @@ private fun SummaryCard(
 
 /** TrackerCatalog'daki tüm domain listeleri (izleme + tam engel) içinde suffix eşleşmesi arar. */
 private fun matchTrackerCatalog(domain: String): String? {
-    for (company in com.cruciblelab.trafficlogger.data.TrackerCatalog.ALL) {
+    for (company in TrackerCatalog.ALL) {
         val inTracking = company.trackingDomains.any { domain.equals(it, ignoreCase = true) || domain.endsWith(".$it", ignoreCase = true) }
         if (inTracking) return "${company.title} (izleme ucu)"
         val inFull = company.fullBlockDomains.any { domain.equals(it, ignoreCase = true) || domain.endsWith(".$it", ignoreCase = true) }
@@ -329,7 +332,7 @@ private fun StatBarList(
     stats: List<Stat>,
     monospace: Boolean = false,
     showCategoryBadge: Boolean = false,
-    ipInfoMap: Map<String, com.cruciblelab.trafficlogger.data.IpInfoCache> = emptyMap()
+    ipInfoMap: Map<String, IpInfoCache> = emptyMap()
 ) {
     if (stats.isEmpty()) {
         Text("Henüz veri yok", style = MaterialTheme.typography.bodySmall, color = TextTertiary)
@@ -337,7 +340,7 @@ private fun StatBarList(
     }
     val max = stats.maxOf { it.bytes }.coerceAtLeast(1)
     Card(
-        shape = RoundedCornerShape(18.dp),
+        shape = CardShapeLarge,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
