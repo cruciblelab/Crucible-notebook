@@ -208,6 +208,7 @@ class TrafficVpnService : VpnService() {
         serviceScope.launch { sessionSweepLoop() }
         serviceScope.launch { ruleSyncLoop() }
         serviceScope.launch { profileSyncLoop() }
+        serviceScope.launch { dohBlockingSyncLoop() }
         serviceScope.launch { dataLimitLoop() }
     }
 
@@ -284,6 +285,12 @@ class TrafficVpnService : VpnService() {
             first = false
             lastProfileId = profile?.id
         }
+    }
+
+    /** Keeps [ruleMatcher]'s "bilinen DoH sunucularını engelle" ayarını Settings ile senkron tutar. */
+    private suspend fun dohBlockingSyncLoop() {
+        val settingsRepository = (application as TrafficLoggerApp).settingsRepository
+        settingsRepository.blockKnownDoh.collect { enabled -> ruleMatcher.updateDohBlocking(enabled) }
     }
 
     /**

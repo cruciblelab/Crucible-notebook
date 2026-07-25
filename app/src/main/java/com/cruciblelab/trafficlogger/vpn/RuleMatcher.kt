@@ -1,8 +1,10 @@
 package com.cruciblelab.trafficlogger.vpn
 
 import com.cruciblelab.trafficlogger.data.BlockRule
+import com.cruciblelab.trafficlogger.data.DohProviders
 import com.cruciblelab.trafficlogger.data.NetworkProfile
 import com.cruciblelab.trafficlogger.data.RuleType
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -26,6 +28,7 @@ class RuleMatcher {
 
     private val rulesRef = AtomicReference<List<BlockRule>>(emptyList())
     private val profileRef = AtomicReference<NetworkProfile?>(null)
+    private val dohBlockingEnabled = AtomicBoolean(false)
 
     fun update(rules: List<BlockRule>) {
         rulesRef.set(rules)
@@ -36,8 +39,20 @@ class RuleMatcher {
         profileRef.set(profile)
     }
 
+    /** Bilinen DoH sunucularını (bkz. [DohProviders]) tamamen engelleme ayarını günceller. */
+    fun updateDohBlocking(enabled: Boolean) {
+        dohBlockingEnabled.set(enabled)
+    }
+
     /** Returns true if this specific app+destination should be blocked. */
     fun isBlocked(appPackageName: String, domain: String?, destIp: String): Boolean {
+        // Bilinen DoH sunucularına giden HER bağlantı, hangi uygulamadan geldiğine ya da
+        // hangi kural/profilin aktif olduğuna bakılmaksızın engellenir - amaç, DNS
+        // trafiğinin bu VPN'i atlayıp şifreli bir kanaldan gitmesini tamamen kapatmak.
+        if (dohBlockingEnabled.get() && (DohProviders.isKnownIp(destIp) || DohProviders.isKnownDomain(domain))) {
+            return true
+        }
+
         val profile = profileRef.get()
         if (profile != null && profile.defaultPolicy == NetworkProfile.DefaultPolicy.DENY) {
             if (profileBlocks(profile, appPackageName, domain)) return true

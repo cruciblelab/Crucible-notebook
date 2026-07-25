@@ -4,7 +4,18 @@ import android.content.Context
 import android.content.pm.PackageManager
 import java.util.concurrent.ConcurrentHashMap
 
-data class ResolvedApp(val packageName: String, val label: String)
+/**
+ * [hasInternetPermission] varsayılan olarak true: bu sınıf hem trafik kayıtlarındaki
+ * (zaten ağa çıkmış, dolayısıyla izni olan) uygulamalar için hem de profil oluşturma
+ * ekranındaki tüm cihaz uygulamaları listesi için kullanılıyor - sadece ikincisi
+ * [com.cruciblelab.trafficlogger.util.loadInstalledApps] içinde gerçek değeri hesaplayıp
+ * bu alanı dolduruyor.
+ */
+data class ResolvedApp(
+    val packageName: String,
+    val label: String,
+    val hasInternetPermission: Boolean = true
+)
 
 /**
  * Resolves a Linux UID to the installed app that owns it, caching results

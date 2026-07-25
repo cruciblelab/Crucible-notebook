@@ -45,6 +45,7 @@ fun TrafficNavGraph(viewModel: MainViewModel, onToggleVpn: () -> Unit) {
     val vpnRunning by viewModel.vpnRunning.collectAsState()
     val retentionDays by viewModel.retentionDays.collectAsState()
     val dailyLimitMb by viewModel.dailyLimitMb.collectAsState()
+    val blockKnownDoh by viewModel.blockKnownDoh.collectAsState()
     val ipInfoMap by viewModel.ipInfoMap.collectAsState()
     val rules by viewModel.rules.collectAsState()
     val homeSummary by viewModel.homeSummary.collectAsState()
@@ -147,6 +148,9 @@ fun TrafficNavGraph(viewModel: MainViewModel, onToggleVpn: () -> Unit) {
                 onImportJson = { json, nameOverride, onResult ->
                     viewModel.importProfileJson(json, nameOverride, onResult)
                 },
+                onUpdate = { id, name, policy, allowedPackages, domainRestrictions, unknownPolicy, onResult ->
+                    viewModel.updateProfile(id, name, policy, allowedPackages, domainRestrictions, unknownPolicy, onResult)
+                },
                 onDelete = viewModel::deleteProfile,
                 onBack = { navController.popBackStack() }
             )
@@ -172,6 +176,8 @@ fun TrafficNavGraph(viewModel: MainViewModel, onToggleVpn: () -> Unit) {
                 onRetentionChange = viewModel::setRetentionDays,
                 dailyLimitMb = dailyLimitMb,
                 onDailyLimitChange = viewModel::setDailyLimitMb,
+                blockKnownDoh = blockKnownDoh,
+                onBlockKnownDohChange = viewModel::setBlockKnownDoh,
                 onClearHistory = viewModel::clearHistory,
                 onBack = { navController.popBackStack() }
             )

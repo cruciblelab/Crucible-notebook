@@ -77,8 +77,12 @@ vermiyor) satırda sadece IP/domain gösterilmeye devam edilir.
 - Şifreli (HTTPS/TLS) trafiğin içeriği okunamaz; yalnızca domain/IP/port ve
   veri miktarı görülebilir.
 - Root gerektirmez.
-- Bu ilk aşamada yalnızca DNS sorguları yakalanır; TLS ClientHello SNI
-  ayrıştırma ve genel TCP/UDP trafiği yakalama sonraki aşamalarda eklenecektir.
+- DNS sorgularının yanı sıra, DNS bu VPN'i atlayan bağlantılar (DoH/DoT, ya da IP'yi
+  doğrudan bilen uygulamalar) için de TLS ClientHello'dan SNI (Server Name Indication)
+  ayrıştırılarak hedef domain tespit edilir - bkz. `TlsSni`. Ayarlar ekranından bilinen
+  genel DoH sunucularını (Google/Cloudflare/Quad9 vb.) tamamen engelleme seçeneği de
+  bulunur - bkz. `DohProviders`. İkisi de en iyi çaba (best-effort): parçalanmış bir
+  ClientHello ya da listede olmayan özel bir DoH sunucusu bu şekilde yakalanmaz.
 
 ## Derleme
 

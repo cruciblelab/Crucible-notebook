@@ -89,6 +89,10 @@ class TcpNat(private val context: RelayContext) {
         private var lastPersist = 0L
 
         @Volatile private var blocked = false
+        // Faz 2 - SNI: client'tan gelen ilk veri segmentinde (genelde TLS ClientHello)
+        // domain aramayı sadece BİR kere deneriz - başarısız olursa (SNI'siz TLS, ya da
+        // TLS olmayan bir protokol) tekrar tekrar parse etmeye çalışmayız.
+        @Volatile private var sniAttempted = false
 
         fun beginConnect() {
             thread(name = "TcpConnect-$remotePort", start = true) {
@@ -184,6 +188,28 @@ class TcpNat(private val context: RelayContext) {
                 sendAckOnly()
                 return
             }
+
+            // Faz 2 - SNI: domain henüz bilinmiyorsa (DNS bu VPN'den geçmedi - örn.
+            // DoH/DoT, ya da uygulama IP'yi zaten biliyordu), client'ın gönderdiği ilk
+            // veriden (genelde bir TLS ClientHello) SNI çıkarmayı dene. Bulunursa hem
+            // dnsCache'e (aynı IP'ye sonraki bağlantılar için) hem de bu oturuma yazılır,
+            // ve kural/profil kontrolü YENİDEN yapılır - artık bilinen bir domain'e göre
+            // engellenmesi gerekiyorsa bağlantı burada, gerçek sunucuya hiçbir uygulama
+            // verisi iletilmeden kesilir.
+            if (!sniAttempted && domain == null && seg.payload.isNotEmpty()) {
+                sniAttempted = true
+                TlsSni.parseSni(seg.payload)?.let { sni ->
+                    domain = sni
+                    context.dnsCache.put(remoteAddress, sni)
+                    val app = context.appInfoResolver.resolve(uid)
+                    if (context.isBlocked(app.packageName, sni, remoteAddress.hostAddress ?: "")) {
+                        clientNext = (clientNext + seg.payload.size) and SEQ_MASK
+                        abortBlockedBySni(app)
+                        return
+                    }
+                }
+            }
+
             val s = socket ?: return
             try {
                 s.getOutputStream().write(seg.payload)
@@ -348,6 +374,46 @@ class TcpNat(private val context: RelayContext) {
             if (state == State.CLOSED) return
             state = State.CLOSED
             persist()
+            try {
+                socket?.close()
+            } catch (e: Exception) {
+                // already gone
+            }
+            sessions.remove(key)
+        }
+
+        /**
+         * SNI ile domain öğrenildikten SONRA bir kural/profil bu bağlantıyı engellediğinde
+         * çağrılır. Gerçek sunucuya TCP el sıkışması (SYN/ACK) zaten tamamlanmış olabilir
+         * ama ClientHello'nun kendisi hiçbir zaman gerçek sunucuya iletilmez - yalnızca
+         * client'a hızlı bir RST döneriz, tıpkı [beginConnect]'teki ilk (domain'siz)
+         * engelleme yolunda olduğu gibi.
+         */
+        private fun abortBlockedBySni(app: com.cruciblelab.trafficlogger.util.ResolvedApp) {
+            if (state == State.CLOSED) return
+            blocked = true
+            state = State.CLOSED
+            sendRst()
+            if (entryId > 0) {
+                context.scope.launch {
+                    context.repository.update(
+                        TrafficEntry(
+                            id = entryId,
+                            appPackageName = app.packageName,
+                            appLabel = app.label,
+                            domain = domain,
+                            destIp = remoteAddress.hostAddress ?: "",
+                            destPort = remotePort,
+                            protocol = Protocol.TCP,
+                            bytesUp = 0,
+                            bytesDown = 0,
+                            timestamp = System.currentTimeMillis(),
+                            direction = Direction.OUT,
+                            blocked = true
+                        )
+                    )
+                }
+            }
             try {
                 socket?.close()
             } catch (e: Exception) {

@@ -23,6 +23,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -53,6 +54,8 @@ fun SettingsScreen(
     onRetentionChange: (Int) -> Unit,
     dailyLimitMb: Int,
     onDailyLimitChange: (Int) -> Unit,
+    blockKnownDoh: Boolean,
+    onBlockKnownDohChange: (Boolean) -> Unit,
     onClearHistory: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -127,6 +130,27 @@ fun SettingsScreen(
                             )
                         )
                     }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 24.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Bilinen DoH sunucularını engelle", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            "Google/Cloudflare/Quad9 gibi bilinen genel DoH (DNS-over-HTTPS) " +
+                                "sunucularına giden bağlantılar tamamen engellenir - böylece DNS " +
+                                "sorguları bu VPN'i şifreli bir kanaldan atlayamaz. Kapsamlı bir " +
+                                "engelleme değildir: listelenmeyen özel bir DoH sunucusu bu şekilde " +
+                                "yakalanmaz.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
+                    }
+                    Switch(checked = blockKnownDoh, onCheckedChange = onBlockKnownDohChange)
                 }
 
                 OutlinedButton(

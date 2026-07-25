@@ -89,6 +89,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val dailyLimitMb: StateFlow<Int> = app.settingsRepository.dailyLimitMb
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
+    /** Faz 2 - bilinen DoH sunucularını tamamen engelle ayarı (bkz. DohProviders/RuleMatcher). */
+    val blockKnownDoh: StateFlow<Boolean> = app.settingsRepository.blockKnownDoh
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun setBlockKnownDoh(enabled: Boolean) {
+        viewModelScope.launch { app.settingsRepository.setBlockKnownDoh(enabled) }
+    }
+
     val vpnRunning: StateFlow<Boolean> = TrafficVpnService.isRunning
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
@@ -149,6 +157,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val result = runCatching {
                 app.profileRepository.create(name, defaultPolicy, allowedPackages, domainRestrictions, unknownDomainPolicy)
+            }
+            onResult(result)
+        }
+    }
+
+    /**
+     * Var olan bir profili düzenler (silip yeniden oluşturmadan) - bkz.
+     * [com.cruciblelab.trafficlogger.data.ProfileRepository.update]. Aynı doğrulama
+     * kuralları geçerli (boş isim / DENY + boş izin listesi), hata olursa [onResult]
+     * ile iletilir.
+     */
+    fun updateProfile(
+        id: String,
+        name: String,
+        defaultPolicy: com.cruciblelab.trafficlogger.data.NetworkProfile.DefaultPolicy,
+        allowedPackages: Set<String>,
+        domainRestrictions: Map<String, Set<String>> = emptyMap(),
+        unknownDomainPolicy: com.cruciblelab.trafficlogger.data.NetworkProfile.UnknownDomainPolicy =
+            com.cruciblelab.trafficlogger.data.NetworkProfile.UnknownDomainPolicy.BLOCK,
+        onResult: (Result<Unit>) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val result = runCatching {
+                app.profileRepository.update(id, name, defaultPolicy, allowedPackages, domainRestrictions, unknownDomainPolicy)
             }
             onResult(result)
         }

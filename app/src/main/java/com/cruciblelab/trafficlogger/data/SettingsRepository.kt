@@ -25,6 +25,14 @@ class SettingsRepository(private val context: Context) {
 
         /** Aktif ağ profilinin id'si (bkz. NetworkProfile). null/boş = profil kapalı, normal mod. */
         val ACTIVE_PROFILE_ID_KEY = stringPreferencesKey("active_profile_id")
+
+        /**
+         * Faz 2 - "DoH'u tamamen bloklama": açıldığında bilinen genel DoH sunucularına
+         * (bkz. DohProviders) giden TÜM bağlantılar, hangi uygulamadan geldiğine
+         * bakılmaksızın engellenir. Varsayılan kapalı - bazı tarayıcılar/uygulamalar DoH'u
+         * her zaman kullanır, bu yüzden kullanıcı bilerek açmalı.
+         */
+        val BLOCK_KNOWN_DOH_KEY = booleanPreferencesKey("block_known_doh")
     }
 
     /** null = hiçbir kısıtlama profili aktif değil (normal, tam erişim modu). */
@@ -65,6 +73,16 @@ class SettingsRepository(private val context: Context) {
     suspend fun setDailyLimitMb(mb: Int) {
         context.dataStore.edit { prefs ->
             prefs[DAILY_LIMIT_MB_KEY] = mb
+        }
+    }
+
+    val blockKnownDoh: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[BLOCK_KNOWN_DOH_KEY] ?: false
+    }
+
+    suspend fun setBlockKnownDoh(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[BLOCK_KNOWN_DOH_KEY] = enabled
         }
     }
 }

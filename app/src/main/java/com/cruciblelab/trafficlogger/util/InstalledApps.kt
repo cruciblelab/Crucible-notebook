@@ -42,7 +42,15 @@ suspend fun loadInstalledApps(context: Context): List<ResolvedApp> = withContext
             } catch (e: Exception) {
                 info.packageName
             }
-            ResolvedApp(packageName = info.packageName, label = label)
+            val hasInternet = try {
+                packageManager.checkPermission(
+                    android.Manifest.permission.INTERNET,
+                    info.packageName
+                ) == PackageManager.PERMISSION_GRANTED
+            } catch (e: Exception) {
+                true // emin olamadığımızda listeden gizlemek yerine göstermeyi tercih ediyoruz
+            }
+            ResolvedApp(packageName = info.packageName, label = label, hasInternetPermission = hasInternet)
         }
         .distinctBy { it.packageName }
         .sortedBy { it.label.lowercase() }

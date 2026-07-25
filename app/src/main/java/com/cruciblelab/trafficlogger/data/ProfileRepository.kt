@@ -55,6 +55,44 @@ class ProfileRepository(
     }
 
     /**
+     * Var olan bir profili yerinde günceller (silip yeniden oluşturmadan) - satır [id]'si
+     * aynı kalır, bu yüzden o an aktif profil düzenleniyorsa aktiflik durumu da korunur.
+     */
+    suspend fun update(
+        id: String,
+        name: String,
+        defaultPolicy: NetworkProfile.DefaultPolicy,
+        allowedPackages: Set<String>,
+        domainRestrictions: Map<String, Set<String>> = emptyMap(),
+        unknownDomainPolicy: NetworkProfile.UnknownDomainPolicy = NetworkProfile.UnknownDomainPolicy.BLOCK
+    ) {
+        require(name.isNotBlank()) { "Profil adı boş olamaz." }
+        require(allowedPackages.isNotEmpty() || defaultPolicy == NetworkProfile.DefaultPolicy.ALLOW) {
+            "DENY politikalı bir profilde en az bir izinli uygulama olmalı, yoksa hiçbir şey çalışmaz."
+        }
+        val rowId = id.toLongOrNull() ?: error("Geçersiz profil id'si.")
+        val existing = dao.findById(rowId)
+        val draft = NetworkProfile(
+            id = "",
+            name = name,
+            defaultPolicy = defaultPolicy,
+            allowedPackages = allowedPackages,
+            domainRestrictions = domainRestrictions,
+            unknownDomainPolicy = unknownDomainPolicy
+        )
+        dao.upsert(
+            ProfileEntity(
+                id = rowId,
+                name = name,
+                json = draft.toJson().toString(),
+                // Düzenleme sırasında oluşturulma tarihi korunur - profil listede
+                // (createdAt DESC) yerini değiştirmesin.
+                createdAt = existing?.createdAt ?: System.currentTimeMillis()
+            )
+        )
+    }
+
+    /**
      * Kullanıcının kendi hazırladığı bir JSON metnini profil olarak içe aktarır (bkz.
      * [NetworkProfile.fromJson] için şema). Format hatalıysa exception fırlatır - çağıran
      * taraf bunu yakalayıp kullanıcıya göstermeli.

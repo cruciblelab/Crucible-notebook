@@ -22,9 +22,13 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
@@ -86,6 +90,15 @@ fun ProfilesScreen(
         onResult: (Result<String>) -> Unit
     ) -> Unit,
     onImportJson: (json: String, nameOverride: String?, onResult: (Result<String>) -> Unit) -> Unit,
+    onUpdate: (
+        id: String,
+        name: String,
+        defaultPolicy: NetworkProfile.DefaultPolicy,
+        allowedPackages: Set<String>,
+        domainRestrictions: Map<String, Set<String>>,
+        unknownDomainPolicy: NetworkProfile.UnknownDomainPolicy,
+        onResult: (Result<Unit>) -> Unit
+    ) -> Unit,
     onDelete: (String) -> Unit,
     onBack: () -> Unit
 ) {
@@ -96,6 +109,7 @@ fun ProfilesScreen(
     var showCreateDialog by remember { mutableStateOf(false) }
     var pendingImportJson by remember { mutableStateOf<String?>(null) }
     var deleteCandidate by remember { mutableStateOf<NetworkProfile?>(null) }
+    var editCandidate by remember { mutableStateOf<NetworkProfile?>(null) }
 
     LaunchedEffect(Unit) { onLoadInstalledApps() }
 
@@ -165,9 +179,11 @@ fun ProfilesScreen(
                     ProfileCard(
                         profile = profile,
                         isActive = profile.id == activeProfile?.id,
+                        installedApps = installedApps,
                         onActivate = { onSetActive(profile.id) },
                         onDeactivate = { onSetActive(null) },
-                        onDelete = { deleteCandidate = profile }
+                        onDelete = { deleteCandidate = profile },
+                        onEdit = { editCandidate = profile }
                     )
                 }
             }
@@ -175,7 +191,10 @@ fun ProfilesScreen(
     }
 
     if (showCreateDialog) {
-        CreateProfileDialog(
+        ProfileFormDialog(
+            title = "Yeni profil",
+            confirmLabel = "Oluştur",
+            initialProfile = null,
             installedApps = installedApps,
             onDismiss = { showCreateDialog = false },
             onConfirm = { name, policy, allowedPackages, domainRestrictions, unknownPolicy ->
@@ -189,6 +208,28 @@ fun ProfilesScreen(
                     }
                 }
                 showCreateDialog = false
+            }
+        )
+    }
+
+    editCandidate?.let { profile ->
+        ProfileFormDialog(
+            title = "Profili düzenle",
+            confirmLabel = "Kaydet",
+            initialProfile = profile,
+            installedApps = installedApps,
+            onDismiss = { editCandidate = null },
+            onConfirm = { name, policy, allowedPackages, domainRestrictions, unknownPolicy ->
+                onUpdate(profile.id, name, policy, allowedPackages, domainRestrictions, unknownPolicy) { result ->
+                    scope.launch {
+                        result.onSuccess {
+                            snackbarHostState.showSnackbar("\"$name\" profili güncellendi.")
+                        }.onFailure { e ->
+                            snackbarHostState.showSnackbar(e.message ?: "Profil güncellenemedi.")
+                        }
+                    }
+                }
+                editCandidate = null
             }
         )
     }
@@ -294,10 +335,15 @@ private fun ActiveProfileCard(activeProfile: NetworkProfile?, onDeactivate: () -
 private fun ProfileCard(
     profile: NetworkProfile,
     isActive: Boolean,
+    installedApps: List<ResolvedApp>,
     onActivate: () -> Unit,
     onDeactivate: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onEdit: () -> Unit
 ) {
+    var expanded by remember(profile.id) { mutableStateOf(false) }
+    val labelsByPackage = remember(installedApps) { installedApps.associateBy({ it.packageName }, { it.label }) }
+
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
@@ -319,10 +365,32 @@ private fun ProfileCard(
                         color = TextSecondary
                     )
                 }
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Filled.Edit, contentDescription = "Düzenle", tint = TextTertiary)
+                }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Filled.Delete, contentDescription = "Sil", tint = TextTertiary)
                 }
             }
+
+            TextButton(
+                onClick = { expanded = !expanded },
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(vertical = 4.dp)
+            ) {
+                Text(if (expanded) "Detayları gizle" else "Detayları göster", style = MaterialTheme.typography.labelMedium)
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            if (expanded) {
+                ProfileDetailBody(profile = profile, labelsByPackage = labelsByPackage)
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
             if (isActive) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -339,8 +407,69 @@ private fun ProfileCard(
     }
 }
 
+/**
+ * Profil kartı genişletildiğinde gösterilen ayrıntılar: hangi uygulamalara izin
+ * verildiği (yüklü uygulama listesinden etiketi bulunabilirse etiketiyle, yoksa çıplak
+ * paket adıyla), varsa uygulama başına domain kısıtlaması, ve bilinmeyen domain
+ * politikası. Salt-okunur - düzenlemek için kalem (Edit) ikonu kullanılır.
+ */
 @Composable
-private fun CreateProfileDialog(
+private fun ProfileDetailBody(profile: NetworkProfile, labelsByPackage: Map<String, String>) {
+    Column(modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)) {
+        Text(
+            "Varsayılan politika: " + if (profile.defaultPolicy == NetworkProfile.DefaultPolicy.DENY) "Kısıtla (DENY)" else "Serbest bırak (ALLOW)",
+            style = MaterialTheme.typography.labelMedium,
+            color = TextSecondary
+        )
+        if (profile.defaultPolicy == NetworkProfile.DefaultPolicy.DENY) {
+            Text(
+                "Bilinmeyen domain (DoH vb.): " +
+                    if (profile.unknownDomainPolicy == NetworkProfile.UnknownDomainPolicy.BLOCK) "Engelle" else "İzin ver",
+                style = MaterialTheme.typography.labelMedium,
+                color = TextSecondary
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        if (profile.allowedPackages.isEmpty()) {
+            Text(
+                "İzinli uygulama listesi boş.",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextTertiary
+            )
+        } else {
+            Text("İzinli uygulamalar", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+            Spacer(modifier = Modifier.height(4.dp))
+            profile.allowedPackages.sorted().forEach { pkg ->
+                Column(modifier = Modifier.padding(bottom = 6.dp)) {
+                    Text(
+                        labelsByPackage[pkg] ?: pkg,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    val domains = profile.domainRestrictions[pkg]
+                    if (domains.isNullOrEmpty()) {
+                        Text(
+                            "Tüm domain'lere izinli",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextTertiary
+                        )
+                    } else {
+                        Text(
+                            "Sadece: " + domains.sorted().joinToString(", "),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextTertiary
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileFormDialog(
+    title: String,
+    confirmLabel: String,
+    initialProfile: NetworkProfile?,
     installedApps: List<ResolvedApp>,
     onDismiss: () -> Unit,
     onConfirm: (
@@ -351,18 +480,33 @@ private fun CreateProfileDialog(
         unknownDomainPolicy: NetworkProfile.UnknownDomainPolicy
     ) -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
-    var defaultPolicy by remember { mutableStateOf(NetworkProfile.DefaultPolicy.DENY) }
-    var unknownDomainPolicy by remember { mutableStateOf(NetworkProfile.UnknownDomainPolicy.BLOCK) }
+    var name by remember { mutableStateOf(initialProfile?.name ?: "") }
+    var defaultPolicy by remember { mutableStateOf(initialProfile?.defaultPolicy ?: NetworkProfile.DefaultPolicy.DENY) }
+    var unknownDomainPolicy by remember {
+        mutableStateOf(initialProfile?.unknownDomainPolicy ?: NetworkProfile.UnknownDomainPolicy.BLOCK)
+    }
     var query by remember { mutableStateOf("") }
-    val selectedPackages = remember { mutableStateOf(setOf<String>()) }
-    val domainDrafts = remember { mutableStateOf(mapOf<String, String>()) }
+    // Küçük bir cila: 100+ paketlik uzun listede sadece internete çıkabilen (INTERNET
+    // izni olan) uygulamaları göstermek, arama kadar önemli bir gürültü azaltma - varsayılan
+    // açık, çünkü ağ izni olmayan bir uygulamayı bir ağ profiline eklemenin zaten bir anlamı yok.
+    var onlyWithInternetPermission by remember { mutableStateOf(true) }
+    val selectedPackages = remember { mutableStateOf(initialProfile?.allowedPackages ?: setOf()) }
+    val domainDrafts = remember {
+        mutableStateOf(
+            initialProfile?.domainRestrictions?.mapValues { (_, domains) -> domains.joinToString(", ") } ?: emptyMap()
+        )
+    }
 
-    val filteredApps = remember(installedApps, query) {
-        if (query.isBlank()) installedApps
-        else installedApps.filter {
-            it.label.contains(query, ignoreCase = true) || it.packageName.contains(query, ignoreCase = true)
-        }
+    val filteredApps = remember(installedApps, query, onlyWithInternetPermission, selectedPackages.value) {
+        installedApps
+            .filter { app ->
+                // Zaten seçili bir uygulama, filtre yüzünden aniden listeden kaybolup
+                // seçimi "görünmez" hale getirmesin - filtre sadece henüz seçilmemişlere uygulanır.
+                app.packageName in selectedPackages.value || !onlyWithInternetPermission || app.hasInternetPermission
+            }
+            .filter {
+                query.isBlank() || it.label.contains(query, ignoreCase = true) || it.packageName.contains(query, ignoreCase = true)
+            }
     }
 
     val isDeny = defaultPolicy == NetworkProfile.DefaultPolicy.DENY
@@ -370,7 +514,7 @@ private fun CreateProfileDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Yeni profil") },
+        title = { Text(title) },
         text = {
             Column(modifier = Modifier.heightIn(max = 480.dp)) {
                 OutlinedTextField(
@@ -433,6 +577,13 @@ private fun CreateProfileDialog(
                         label = { Text("Uygulama ara") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    FilterChip(
+                        selected = onlyWithInternetPermission,
+                        onClick = { onlyWithInternetPermission = !onlyWithInternetPermission },
+                        leadingIcon = { Icon(Icons.Filled.Public, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                        label = { Text("Sadece ağ izni olanlar") }
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     if (installedApps.isEmpty()) {
@@ -505,7 +656,7 @@ private fun CreateProfileDialog(
                         .filterValues { it.isNotEmpty() }
                     onConfirm(name.trim(), defaultPolicy, selectedPackages.value, domainRestrictions, unknownDomainPolicy)
                 }
-            ) { Text("Oluştur") }
+            ) { Text(confirmLabel) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Vazgeç") }
