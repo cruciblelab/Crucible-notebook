@@ -117,6 +117,50 @@ object TrackerCatalog {
             )
         ),
         Company(
+            key = "xiaomi",
+            title = "Xiaomi (MIUI)",
+            simpleDescription = "Xiaomi cihazlarla gelen sistem uygulamalarının (hava durumu, tema, güvenlik vb.) " +
+                "topladığı kullanım/reklam verisi. Bu uçları kapatmak Mi Hesabı, bulut yedekleme " +
+                "veya sistem güncellemelerini BOZMAZ - yalnızca telemetri/reklam trafiğini keser.",
+            // Kaynak: birden fazla bağımsız açık kaynaklı DNS-engelleme listesinde (hagezi/
+            // dns-blocklists, FTPiHole, çeşitli Pi-hole/AdAway koleksiyonları) tekrar eden,
+            // iyi belgelenmiş uçlar. Bunlar MIUI sistem uygulamalarına gömülü olduğu için
+            // "hangi uygulama" bazlı değil - hava durumu, tema mağazası, güvenlik uygulaması
+            // gibi hiçbiri asıl işi reklam/analitik olmayan pek çok ön yüklü uygulama bunlara
+            // bağlanabilir.
+            trackingDomains = listOf(
+                "tracking.miui.com",
+                "tracking.intl.miui.com",
+                "ad.xiaomi.com",
+                "ad.mi.com",
+                "ad1.xiaomi.com",
+                "api.ad.xiaomi.com",
+                "api.ad.intl.xiaomi.com",
+                "api.admob.xiaomi.com",
+                "globalapi.ad.xiaomi.com",
+                "sdkconfig.ad.xiaomi.com",
+                "sdkconfig.ad.intl.xiaomi.com",
+                "cdn.ad.xiaomi.com",
+                "data.mistat.xiaomi.com",
+                "data.mistat.intl.xiaomi.com",
+                "abtest.mistat.xiaomi.com",
+                "abtest.mistat.intl.xiaomi.com",
+                "a.stat.xiaomi.com",
+                "stat.miui.com",
+                "feedback.miui.com"
+            ),
+            // İleri düzey/tam engelleme: Mi Hesabı, Mi Cloud, sistem güncellemeleri de bu
+            // apex domain'lerin altında olduğu için bunu açmak cihazın temel Xiaomi
+            // servislerini (hesap girişi, bulut yedekleme, OTA güncelleme) BOZAR - bu yüzden
+            // varsayılan olarak KAPALI, bilerek açılması gereken bir seçenek.
+            fullBlockDomains = listOf(
+                "xiaomi.com",
+                "xiaomi.net",
+                "mi.com",
+                "miui.com"
+            )
+        ),
+        Company(
             key = "third_party_ad_networks",
             title = "Bağımsız Reklam Ağları",
             simpleDescription = "Oyun/uygulama içi reklam gösteren, tek bir büyük şirkete ait olmayan servisler (Unity, AppLovin, ironSource vb.).",
