@@ -385,6 +385,17 @@ private fun OtherSourcesCard(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+                        if (item.appLabels.isNotEmpty()) {
+                            Text(
+                                item.appLabels.first() +
+                                    if (item.appLabels.size > 1) " +${item.appLabels.size - 1} diğer" else "",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Medium,
+                                color = AccentViolet,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                         Text(
                             when {
                                 orgMatch != null -> "${orgMatch.company} · ${orgMatch.category.displayName}" +

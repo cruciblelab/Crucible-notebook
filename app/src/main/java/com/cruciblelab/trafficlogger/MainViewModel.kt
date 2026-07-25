@@ -31,8 +31,17 @@ data class TopAppUsage(
     val category: AppCategoryClassifier.Category
 )
 
-/** Trafikte görülen ama TrackerCatalog'daki kürasyonlu listede olmayan bir domain. */
-data class ObservedOtherDomain(val domain: String, val destIp: String, val bytes: Long)
+/**
+ * Trafikte görülen ama TrackerCatalog'daki kürasyonlu listede olmayan bir domain.
+ * [appLabels] o domain'e bugün bağlanan tüm uygulamaların isimleri (birden fazla uygulama
+ * aynı domain'e gidebilir, örn. paylaşılan bir SDK/altyapı) - en sık göreni önde.
+ */
+data class ObservedOtherDomain(
+    val domain: String,
+    val destIp: String,
+    val bytes: Long,
+    val appLabels: List<String> = emptyList()
+)
 
 /**
  * Bugün tekrar tekrar engellenen bir (uygulama, hedef) çifti. [attemptCount] kaç kez
@@ -256,7 +265,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val otherDomains = todayEntries
             .filter { !it.domain.isNullOrBlank() && !isCurated(it.domain) }
             .groupBy { it.domain!! }
-            .map { (domain, rows) -> ObservedOtherDomain(domain, rows.first().destIp, rows.sumOf { it.bytesUp + it.bytesDown }) }
+            .map { (domain, rows) ->
+                val appLabels = rows.groupBy { it.appLabel }
+                    .entries.sortedByDescending { it.value.size }
+                    .map { it.key }
+                ObservedOtherDomain(domain, rows.first().destIp, rows.sumOf { it.bytesUp + it.bytesDown }, appLabels)
+            }
             .sortedByDescending { it.bytes }
             .take(5)
 
