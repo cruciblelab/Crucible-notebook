@@ -111,7 +111,8 @@ fun TrafficListScreen(
     onStatsClick: () -> Unit,
     onRulesClick: () -> Unit,
     onBlockEntry: (TrafficEntry) -> Unit,
-    onWhitelistEntry: (TrafficEntry) -> Unit
+    onWhitelistEntry: (TrafficEntry) -> Unit,
+    initialOnlyBlocked: Boolean = false
 ) {
     var selectedApp by remember { mutableStateOf<String?>(null) }
     var query by remember { mutableStateOf("") }
@@ -119,13 +120,14 @@ fun TrafficListScreen(
     var directionFilter by remember { mutableStateOf<Direction?>(null) }
     var dateRangeFilter by remember { mutableStateOf(DateRangePreset.ALL) }
     var sortOption by remember { mutableStateOf(TrafficSortOption.DATE_DESC) }
+    var onlyBlockedFilter by remember { mutableStateOf(initialOnlyBlocked) }
     var showFilterSheet by remember { mutableStateOf(false) }
 
     val appNames = remember(entries) { entries.map { it.appLabel }.distinct().sorted() }
     val filtersActive = protocolFilter != null || directionFilter != null || dateRangeFilter != DateRangePreset.ALL ||
-        sortOption != TrafficSortOption.DATE_DESC
+        sortOption != TrafficSortOption.DATE_DESC || onlyBlockedFilter
 
-    val filteredEntries = remember(entries, selectedApp, query, protocolFilter, directionFilter, dateRangeFilter, sortOption) {
+    val filteredEntries = remember(entries, selectedApp, query, protocolFilter, directionFilter, dateRangeFilter, sortOption, onlyBlockedFilter) {
         entries
             .let { list -> selectedApp?.let { app -> list.filter { it.appLabel == app } } ?: list }
             .let { list ->
@@ -136,6 +138,7 @@ fun TrafficListScreen(
                         it.destIp.contains(query, ignoreCase = true)
                 }
             }
+            .let { list -> if (onlyBlockedFilter) list.filter { it.blocked } else list }
             .let { list -> protocolFilter?.let { p -> list.filter { it.protocol == p } } ?: list }
             .let { list -> directionFilter?.let { d -> list.filter { it.direction == d } } ?: list }
             .let { list ->
@@ -273,6 +276,8 @@ fun TrafficListScreen(
 
     if (showFilterSheet) {
         FilterSortSheet(
+            onlyBlockedFilter = onlyBlockedFilter,
+            onOnlyBlockedChange = { onlyBlockedFilter = it },
             protocolFilter = protocolFilter,
             onProtocolChange = { protocolFilter = it },
             directionFilter = directionFilter,
@@ -282,6 +287,7 @@ fun TrafficListScreen(
             sortOption = sortOption,
             onSortChange = { sortOption = it },
             onReset = {
+                onlyBlockedFilter = false
                 protocolFilter = null
                 directionFilter = null
                 dateRangeFilter = DateRangePreset.ALL
@@ -295,6 +301,8 @@ fun TrafficListScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FilterSortSheet(
+    onlyBlockedFilter: Boolean,
+    onOnlyBlockedChange: (Boolean) -> Unit,
     protocolFilter: Protocol?,
     onProtocolChange: (Protocol?) -> Unit,
     directionFilter: Direction?,
@@ -322,6 +330,12 @@ private fun FilterSortSheet(
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.clickable(onClick = onReset)
                 )
+            }
+
+            SheetSectionTitle("Durum")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SheetChip("Tümü", !onlyBlockedFilter) { onOnlyBlockedChange(false) }
+                SheetChip("Sadece engellenenler", onlyBlockedFilter) { onOnlyBlockedChange(true) }
             }
 
             SheetSectionTitle("Protokol")

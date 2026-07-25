@@ -34,13 +34,35 @@ data class TopAppUsage(
 /** Trafikte görülen ama TrackerCatalog'daki kürasyonlu listede olmayan bir domain. */
 data class ObservedOtherDomain(val domain: String, val destIp: String, val bytes: Long)
 
+/**
+ * Bugün tekrar tekrar engellenen bir (uygulama, hedef) çifti. [attemptCount] kaç kez
+ * denendiğini gösterir. Engellenen bağlantılar hiç veri alışverişi yapmadan (bağlanmadan
+ * önce) reddedildiği için burada byte cinsinden bir miktar YOK; ölçülebilen tek şey deneme
+ * sayısı - bkz. HomeSummary.blockedBytesToday.
+ */
+data class BlockedDestinationSummary(
+    val target: String,
+    val appLabel: String?,
+    val attemptCount: Int,
+    val lastAttemptAt: Long
+)
+
 /** Ana Sayfa'daki tek bakışlık özet kartının tüm verisi. */
 data class HomeSummary(
     val totalBytesToday: Long,
     val topApps: List<TopAppUsage>,
     val unknownAppLabels: List<String>,
     val flaggedAppLabels: List<String>,
-    val otherObservedDomains: List<ObservedOtherDomain> = emptyList()
+    val otherObservedDomains: List<ObservedOtherDomain> = emptyList(),
+    val blockedCountToday: Int = 0,
+    /**
+     * Engellenen bağlantılar bağlantı kurulmadan reddedildiğinden bytesUp/bytesDown her
+     * zaman 0 olarak loglanır - yani bu alan gerçek bir "engellenen veri miktarı" DEĞİL,
+     * her zaman 0'dır. UI'da yanıltıcı olmasın diye "kaç bayt engellendi" yerine "kaç
+     * bağlantı denemesi engellendi" (blockedCountToday) gösterilir.
+     */
+    val blockedBytesToday: Long = 0L,
+    val topBlockedToday: List<BlockedDestinationSummary> = emptyList()
 ) {
     val allKnown: Boolean get() = unknownAppLabels.isEmpty() && flaggedAppLabels.isEmpty()
 }
@@ -238,13 +260,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             .sortedByDescending { it.bytes }
             .take(5)
 
+        // Engellenen bağlantılar bağlanmadan reddedildiği için bytesUp/bytesDown burada
+        // hep 0'dır (bkz. TcpNat/UdpNat) - o yüzden "kaç bayt" değil "kaç kez denendi"
+        // sayıyoruz. Aynı (uygulama, hedef) çifti tekrar tekrar deneniyorsa (örn. bir arka
+        // plan servisi ısrarla bağlanmaya çalışıyorsa) bunu tek satırda toplayıp sayıyoruz.
+        val blockedToday = todayEntries.filter { it.blocked }
+        val topBlocked = blockedToday
+            .groupBy { (it.appPackageName to it.appLabel) to (it.domain ?: it.destIp) }
+            .map { (key, rows) ->
+                BlockedDestinationSummary(
+                    target = key.second,
+                    appLabel = key.first.second,
+                    attemptCount = rows.size,
+                    lastAttemptAt = rows.maxOf { it.timestamp }
+                )
+            }
+            .sortedByDescending { it.attemptCount }
+            .take(5)
+
         HomeSummary(
             totalBytesToday = totalToday,
             topApps = classified.take(3),
             unknownAppLabels = classified.filter { it.category == AppCategoryClassifier.Category.UNKNOWN }.map { it.label },
             flaggedAppLabels = (classified.filter { it.category == AppCategoryClassifier.Category.FLAGGED } +
                 classified.filter { it.category == AppCategoryClassifier.Category.SIGNATURE_MISMATCH }).map { it.label },
-            otherObservedDomains = otherDomains
+            otherObservedDomains = otherDomains,
+            blockedCountToday = blockedToday.size,
+            blockedBytesToday = blockedToday.sumOf { it.bytesUp + it.bytesDown },
+            topBlockedToday = topBlocked
         )
     }.stateIn(
         viewModelScope,

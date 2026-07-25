@@ -17,13 +17,14 @@ import com.cruciblelab.trafficlogger.data.RuleType
 private object Routes {
     const val ONBOARDING = "onboarding"
     const val HOME = "home"
-    const val LIST = "list"
+    const val LIST = "list?onlyBlocked={onlyBlocked}"
     const val DETAIL = "detail/{entryId}"
     const val SETTINGS = "settings"
     const val STATS = "stats"
     const val RULES = "rules"
     const val REPUTATION = "reputation"
     fun detail(id: Long) = "detail/$id"
+    fun list(onlyBlocked: Boolean = false) = "list?onlyBlocked=$onlyBlocked"
 }
 
 @Composable
@@ -75,14 +76,19 @@ fun TrafficNavGraph(viewModel: MainViewModel, onToggleVpn: () -> Unit) {
                 ipInfoMap = ipInfoMap,
                 onRequestIpInfo = viewModel::requestIpInfo,
                 onQuickBlockDomain = viewModel::quickBlockDomain,
-                onOpenList = { navController.navigate(Routes.LIST) },
+                onOpenList = { navController.navigate(Routes.list()) },
+                onOpenBlockedList = { navController.navigate(Routes.list(onlyBlocked = true)) },
                 onOpenStats = { navController.navigate(Routes.STATS) },
                 onOpenRules = { navController.navigate(Routes.RULES) },
                 onOpenReputation = { navController.navigate(Routes.REPUTATION) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) }
             )
         }
-        composable(Routes.LIST) {
+        composable(
+            Routes.LIST,
+            arguments = listOf(navArgument("onlyBlocked") { type = NavType.BoolType; defaultValue = false })
+        ) { backStackEntry ->
+            val onlyBlocked = backStackEntry.arguments?.getBoolean("onlyBlocked") ?: false
             TrafficListScreen(
                 entries = entries,
                 vpnRunning = vpnRunning,
@@ -95,7 +101,8 @@ fun TrafficNavGraph(viewModel: MainViewModel, onToggleVpn: () -> Unit) {
                 onStatsClick = { navController.navigate(Routes.STATS) },
                 onRulesClick = { navController.navigate(Routes.RULES) },
                 onBlockEntry = viewModel::blockEntry,
-                onWhitelistEntry = viewModel::whitelistEntry
+                onWhitelistEntry = viewModel::whitelistEntry,
+                initialOnlyBlocked = onlyBlocked
             )
         }
         composable(Routes.STATS) {

@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Flag
@@ -51,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import com.cruciblelab.trafficlogger.BlockedDestinationSummary
 import com.cruciblelab.trafficlogger.HomeSummary
 import com.cruciblelab.trafficlogger.ObservedOtherDomain
 import com.cruciblelab.trafficlogger.TopAppUsage
@@ -64,6 +66,7 @@ import com.cruciblelab.trafficlogger.ui.theme.TextSecondary
 import com.cruciblelab.trafficlogger.ui.theme.TextTertiary
 import com.cruciblelab.trafficlogger.util.AppCategoryClassifier
 import com.cruciblelab.trafficlogger.util.formatBytes
+import com.cruciblelab.trafficlogger.util.formatTimestamp
 
 /**
  * "Tek bakışta anlaşılır" ana ekran: teknik detaya girmeden bugünün özetini, en çok veri
@@ -84,6 +87,7 @@ fun HomeScreen(
     onRequestIpInfo: (String) -> Unit,
     onQuickBlockDomain: (String) -> Unit,
     onOpenList: () -> Unit,
+    onOpenBlockedList: () -> Unit,
     onOpenStats: () -> Unit,
     onOpenRules: () -> Unit,
     onOpenReputation: () -> Unit,
@@ -125,6 +129,16 @@ fun HomeScreen(
                             fontWeight = FontWeight.Bold
                         )
                     }
+                }
+            }
+            if (summary.blockedCountToday > 0) {
+                item { SectionLabel("Bugün engellenenler") }
+                item {
+                    BlockedTodayCard(
+                        blockedCount = summary.blockedCountToday,
+                        topBlocked = summary.topBlockedToday,
+                        onOpenBlockedList = onOpenBlockedList
+                    )
                 }
             }
             item { SectionLabel("Veri toplama kontrolleri") }
@@ -514,6 +528,90 @@ private fun InsightCard(
             }
             Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = TextTertiary)
         }
+    }
+}
+
+/**
+ * Bugün engellenen bağlantı denemelerini özetler. ÖNEMLİ: engellenen bağlantılar hiçbir
+ * veri aktarmadan (bağlanmadan önce) reddedilir, bu yüzden "kaç bayt engellendi" diye bir
+ * sayı YOKTUR - göstermek yanıltıcı olurdu. Bunun yerine "kaç kez denendi" gösteriyoruz;
+ * kullanıcının asıl merak ettiği "ne engellendi, kim deniyor" sorusuna da domain + uygulama
+ * + son deneme zamanıyla cevap veriyoruz.
+ */
+@Composable
+private fun BlockedTodayCard(
+    blockedCount: Int,
+    topBlocked: List<BlockedDestinationSummary>,
+    onOpenBlockedList: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Block, contentDescription = null, tint = AccentCoral, modifier = Modifier.size(22.dp))
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "$blockedCount bağlantı denemesi engellendi",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Kurallara takılan bağlantılar hiçbir veri aktarmadan reddedildi, bu yüzden burada bir \"veri miktarı\" yok - yalnızca kaç kez denendiğini gösteriyoruz.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextTertiary
+                    )
+                }
+            }
+            if (topBlocked.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.background)
+                topBlocked.forEach { item -> BlockedRow(item) }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().clickableNoRipple(onOpenBlockedList),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Tümünü gör", style = MaterialTheme.typography.labelLarge, color = AccentViolet)
+                Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = AccentViolet, modifier = Modifier.size(18.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun BlockedRow(item: BlockedDestinationSummary) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                item.target,
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = FontFamily.Monospace,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                (item.appLabel?.let { "$it · " } ?: "") + "son deneme: ${formatTimestamp(item.lastAttemptAt)}",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextTertiary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Text(
+            "${item.attemptCount}×",
+            style = MaterialTheme.typography.labelLarge,
+            color = AccentCoral,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
