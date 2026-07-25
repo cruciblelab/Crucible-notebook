@@ -5,6 +5,7 @@ import com.cruciblelab.trafficlogger.data.AppDatabase
 import com.cruciblelab.trafficlogger.data.IpInfoRepository
 import com.cruciblelab.trafficlogger.data.IpResolutionQueue
 import com.cruciblelab.trafficlogger.data.PackageIntegrityRepository
+import com.cruciblelab.trafficlogger.data.ProfileRepository
 import com.cruciblelab.trafficlogger.data.ReputationRepository
 import com.cruciblelab.trafficlogger.data.RuleRepository
 import com.cruciblelab.trafficlogger.data.SettingsRepository
@@ -29,6 +30,7 @@ class TrafficLoggerApp : Application() {
     val packageIntegrityRepository by lazy {
         PackageIntegrityRepository(database.packageSignatureDao(), SigningCertResolver(this))
     }
+    val profileRepository by lazy { ProfileRepository(database.profileDao(), settingsRepository) }
 
     override fun onCreate() {
         super.onCreate()

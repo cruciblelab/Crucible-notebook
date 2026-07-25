@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -21,6 +22,20 @@ class SettingsRepository(private val context: Context) {
         const val DEFAULT_DAILY_LIMIT_MB = 0
 
         val ONBOARDING_COMPLETED_KEY = booleanPreferencesKey("onboarding_completed")
+
+        /** Aktif ağ profilinin id'si (bkz. NetworkProfile). null/boş = profil kapalı, normal mod. */
+        val ACTIVE_PROFILE_ID_KEY = stringPreferencesKey("active_profile_id")
+    }
+
+    /** null = hiçbir kısıtlama profili aktif değil (normal, tam erişim modu). */
+    val activeProfileId: Flow<String?> = context.dataStore.data.map { prefs ->
+        prefs[ACTIVE_PROFILE_ID_KEY]?.takeIf { it.isNotBlank() }
+    }
+
+    suspend fun setActiveProfileId(id: String?) {
+        context.dataStore.edit { prefs ->
+            if (id.isNullOrBlank()) prefs.remove(ACTIVE_PROFILE_ID_KEY) else prefs[ACTIVE_PROFILE_ID_KEY] = id
+        }
     }
 
     val onboardingCompleted: Flow<Boolean> = context.dataStore.data.map { prefs ->

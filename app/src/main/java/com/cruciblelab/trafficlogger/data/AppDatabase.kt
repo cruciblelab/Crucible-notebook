@@ -13,9 +13,10 @@ import androidx.room.TypeConverters
         BlockRule::class,
         ReputationSource::class,
         AppReputationEntry::class,
-        PackageSignatureRecord::class
+        PackageSignatureRecord::class,
+        ProfileEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -26,6 +27,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun blockRuleDao(): BlockRuleDao
     abstract fun reputationDao(): ReputationDao
     abstract fun packageSignatureDao(): PackageSignatureDao
+    abstract fun profileDao(): ProfileDao
 
     companion object {
         @Volatile

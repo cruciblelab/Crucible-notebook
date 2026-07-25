@@ -91,7 +91,9 @@ fun HomeScreen(
     onOpenStats: () -> Unit,
     onOpenRules: () -> Unit,
     onOpenReputation: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenProfiles: () -> Unit,
+    onOpenSettings: () -> Unit,
+    activeProfile: com.cruciblelab.trafficlogger.data.NetworkProfile? = null
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -113,6 +115,9 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             item { VpnStatusCard(vpnRunning = vpnRunning, onToggleVpn = onToggleVpn) }
+            if (activeProfile != null) {
+                item { ActiveProfileBanner(profileName = activeProfile.name, onOpenProfiles = onOpenProfiles) }
+            }
             item { InsightCard(summary = summary, onOpenList = onOpenList, onOpenReputation = onOpenReputation) }
             item {
                 Card(
@@ -193,9 +198,33 @@ fun HomeScreen(
                     onOpenList = onOpenList,
                     onOpenStats = onOpenStats,
                     onOpenRules = onOpenRules,
-                    onOpenReputation = onOpenReputation
+                    onOpenReputation = onOpenReputation,
+                    onOpenProfiles = onOpenProfiles
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun ActiveProfileBanner(profileName: String, onOpenProfiles: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickableNoRipple(onOpenProfiles),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = AccentViolet.copy(alpha = 0.12f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Filled.Shield, contentDescription = null, tint = AccentViolet, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Kısıtlama profili aktif", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                Text(profileName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            }
+            Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = TextTertiary)
         }
     }
 }
@@ -673,7 +702,8 @@ private fun QuickNavGrid(
     onOpenList: () -> Unit,
     onOpenStats: () -> Unit,
     onOpenRules: () -> Unit,
-    onOpenReputation: () -> Unit
+    onOpenReputation: () -> Unit,
+    onOpenProfiles: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -683,6 +713,9 @@ private fun QuickNavGrid(
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             QuickNavCard("Kara/Beyaz Liste", Icons.Filled.Shield, Modifier.weight(1f), onOpenRules)
             QuickNavCard("İtibar Veritabanları", Icons.Filled.Security, Modifier.weight(1f), onOpenReputation)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            QuickNavCard("Kısıtlama Profilleri", Icons.Filled.Shield, Modifier.weight(1f), onOpenProfiles)
         }
     }
 }

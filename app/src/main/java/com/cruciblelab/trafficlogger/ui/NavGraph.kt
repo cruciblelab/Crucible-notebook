@@ -23,6 +23,7 @@ private object Routes {
     const val STATS = "stats"
     const val RULES = "rules"
     const val REPUTATION = "reputation"
+    const val PROFILES = "profiles"
     fun detail(id: Long) = "detail/$id"
     fun list(onlyBlocked: Boolean = false) = "list?onlyBlocked=$onlyBlocked"
 }
@@ -49,6 +50,9 @@ fun TrafficNavGraph(viewModel: MainViewModel, onToggleVpn: () -> Unit) {
     val homeSummary by viewModel.homeSummary.collectAsState()
     val companyProtectionStates by viewModel.companyProtectionStates.collectAsState()
     val reputationSources by viewModel.reputationSources.collectAsState()
+    val availableProfiles by viewModel.availableProfiles.collectAsState()
+    val activeProfile by viewModel.activeProfile.collectAsState()
+    val installedApps by viewModel.installedApps.collectAsState()
 
     NavHost(
         navController = navController,
@@ -81,7 +85,9 @@ fun TrafficNavGraph(viewModel: MainViewModel, onToggleVpn: () -> Unit) {
                 onOpenStats = { navController.navigate(Routes.STATS) },
                 onOpenRules = { navController.navigate(Routes.RULES) },
                 onOpenReputation = { navController.navigate(Routes.REPUTATION) },
-                onOpenSettings = { navController.navigate(Routes.SETTINGS) }
+                onOpenProfiles = { navController.navigate(Routes.PROFILES) },
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                activeProfile = activeProfile
             )
         }
         composable(
@@ -125,6 +131,23 @@ fun TrafficNavGraph(viewModel: MainViewModel, onToggleVpn: () -> Unit) {
                 onSetEnabled = viewModel::setSourceEnabled,
                 onSetAutoBlock = viewModel::setSourceAutoBlock,
                 onDeleteSource = viewModel::deleteReputationSource,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Routes.PROFILES) {
+            ProfilesScreen(
+                profiles = availableProfiles,
+                activeProfile = activeProfile,
+                installedApps = installedApps,
+                onLoadInstalledApps = viewModel::loadInstalledAppsIfNeeded,
+                onSetActive = viewModel::setActiveProfile,
+                onCreate = { name, policy, allowedPackages, domainRestrictions, unknownPolicy, onResult ->
+                    viewModel.createProfile(name, policy, allowedPackages, domainRestrictions, unknownPolicy, onResult)
+                },
+                onImportJson = { json, nameOverride, onResult ->
+                    viewModel.importProfileJson(json, nameOverride, onResult)
+                },
+                onDelete = viewModel::deleteProfile,
                 onBack = { navController.popBackStack() }
             )
         }

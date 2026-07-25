@@ -28,9 +28,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
 /**
@@ -66,7 +68,31 @@ class TrafficVpnService : VpnService() {
          * 3-5 is a good range for a phone CPU; raise it if the device has more cores
          * and you're running many simultaneous connections, lower it to save battery.
          */
-        private const val PACKET_WORKER_COUNT = 4
+        /**
+         * Paket işleme worker havuzu artık SABİT değil, UYARLANABİLİR (adaptive): pil
+         * tüketimini en aza indirmek için normalde tek thread'de (MIN_PACKET_WORKERS)
+         * çalışır - telefonun tipik kullanımında (birkaç eşzamanlı bağlantı) bu, işi tek
+         * bir CPU çekirdeğinde toplayarak diğer çekirdeklerin derin uykuda kalmasını sağlar.
+         *
+         * Sadece gerçek bir yük birikmesi (backlog) tespit edilirse - örn. aynı anda çok
+         * sayıda yeni bağlantı açan bir uygulama - [scaleWorkersIfNeeded] devreye girip
+         * kapasiteyi kademeli olarak MAX_PACKET_WORKERS'a kadar artırır; yük geçince tekrar
+         * MIN_PACKET_WORKERS'a geri iner. Havuzdaki thread'ler baştan (idle-blocked halde)
+         * oluşturulur - kullanılmayan bir ExecutorService.execute() beklemesi CPU harcamaz,
+         * bu yüzden "kaç tanesi var" değil "kaçına aktif iş veriliyor" pil açısından önemli
+         * olan.
+         *
+         * GÜVENLİK NOTU: Bir bağlantının paketleri her zaman İLK atandığı worker'da kalır
+         * (bkz. [connectionWorkerIndex]) - kapasite sonradan artsa/azalsa bile o bağlantı
+         * asla farklı bir thread'e geçmez. Aksi halde TcpSession/UdpSession'daki mutable
+         * alanlara iki thread'in aynı anda dokunması veri yarışına yol açardı.
+         */
+        private const val MIN_PACKET_WORKERS = 1
+        private const val MAX_PACKET_WORKERS = 4
+        /** Bu kadar bekleyen (henüz tamamlanmamış) paket görevi birikirse bir worker daha açılır. */
+        private const val SCALE_UP_BACKLOG_THRESHOLD = 24
+        /** Bağlantı->worker eşlemesi, bu süre boyunca hiç paket görmezse haritadan temizlenir. */
+        private const val CONNECTION_WORKER_TTL_MS = 4 * 60_000L
 
         private val _isRunning = MutableStateFlow(false)
         val isRunning = _isRunning.asStateFlow()
@@ -76,6 +102,13 @@ class TrafficVpnService : VpnService() {
     private var readerThread: Thread? = null
     @Volatile private var running = false
     private var packetWorkers: List<ExecutorService> = emptyList()
+    /** Şu anda yeni bağlantılara dağıtılabilecek worker sayısı - MIN..MAX arası, canlı ayarlanır. */
+    private val activeWorkerCount = AtomicInteger(MIN_PACKET_WORKERS)
+    /** Worker'lara verilmiş ama henüz bitmemiş görev sayısı - basit backlog sinyali. */
+    private val pendingPacketTasks = AtomicInteger(0)
+    /** Her bağlantı (4-tuple) ilk paketinde bir worker'a "yapışır" - bkz. [assignedWorkerFor]. */
+    private data class WorkerAssignment(val workerIndex: Int, @Volatile var lastSeenMs: Long)
+    private val connectionWorkerIndex = ConcurrentHashMap<String, WorkerAssignment>()
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var appInfoResolver: AppInfoResolver
@@ -163,7 +196,7 @@ class TrafficVpnService : VpnService() {
         udpNat = UdpNat(relayContext)
         tcpNat = TcpNat(relayContext)
 
-        packetWorkers = List(PACKET_WORKER_COUNT) { index ->
+        packetWorkers = List(MAX_PACKET_WORKERS) { index ->
             Executors.newSingleThreadExecutor { r -> Thread(r, "TrafficVpnWorker-$index") }
         }
 
@@ -174,6 +207,7 @@ class TrafficVpnService : VpnService() {
         serviceScope.launch { retentionLoop() }
         serviceScope.launch { sessionSweepLoop() }
         serviceScope.launch { ruleSyncLoop() }
+        serviceScope.launch { profileSyncLoop() }
         serviceScope.launch { dataLimitLoop() }
     }
 
@@ -184,6 +218,9 @@ class TrafficVpnService : VpnService() {
         readerThread = null
         packetWorkers.forEach { it.shutdownNow() }
         packetWorkers = emptyList()
+        connectionWorkerIndex.clear()
+        pendingPacketTasks.set(0)
+        activeWorkerCount.set(MIN_PACKET_WORKERS)
         if (::udpNat.isInitialized) udpNat.closeAll()
         if (::tcpNat.isInitialized) tcpNat.closeAll()
         try {
@@ -211,6 +248,7 @@ class TrafficVpnService : VpnService() {
             delay(SESSION_SWEEP_INTERVAL_MS)
             udpNat.sweepIdleSessions()
             tcpNat.sweepIdleSessions()
+            scaleWorkersIfNeeded()
         }
     }
 
@@ -218,6 +256,34 @@ class TrafficVpnService : VpnService() {
     private suspend fun ruleSyncLoop() {
         val ruleRepository = (application as TrafficLoggerApp).ruleRepository
         ruleRepository.observeAll().collect { rules -> ruleMatcher.update(rules) }
+    }
+
+    /**
+     * Keeps [ruleMatcher] in sync with whichever [com.cruciblelab.trafficlogger.data.NetworkProfile]
+     * (e.g. "Bankacılık Modu") is active. Unlike manual rule changes, a profile switch also
+     * tears down every currently-open TCP/UDP session (see [TcpNat.closeAll]/[UdpNat.closeAll]):
+     * a profile is meant to be a hard, immediate restriction (e.g. handing the phone to a
+     * child, or locking it down before a bank transfer), so a connection opened under the
+     * previous profile shouldn't keep running just because it was established before the
+     * switch. Apps that need the connection will simply reconnect and get re-evaluated
+     * against the new active profile on their next packet.
+     */
+    private suspend fun profileSyncLoop() {
+        val profileRepository = (application as TrafficLoggerApp).profileRepository
+        var first = true
+        var lastProfileId: String? = null
+        profileRepository.activeProfile.collect { profile ->
+            ruleMatcher.updateProfile(profile)
+            // İlk emisyon (servis başlarken) mevcut hiçbir bağlantıyı kesmemeli - henüz
+            // hiçbir bağlantı bu profilden ÖNCE açılmış olamaz. Sonraki her gerçek
+            // değişiklikte (profil açma/kapama/değiştirme) açık oturumları kapatıyoruz.
+            if (!first && profile?.id != lastProfileId) {
+                if (::tcpNat.isInitialized) tcpNat.closeAll()
+                if (::udpNat.isInitialized) udpNat.closeAll()
+            }
+            first = false
+            lastProfileId = profile?.id
+        }
     }
 
     /**
@@ -295,9 +361,11 @@ class TrafficVpnService : VpnService() {
 
     /**
      * Parses just the headers on the (single) reader thread - cheap - then hands the
-     * actual NAT/relay work off to one of [packetWorkers], chosen by hashing the
-     * connection's 4-tuple so every packet of the same connection always lands on the
-     * same worker (preserving order) while unrelated connections run in parallel.
+     * actual NAT/relay work off to one of [packetWorkers]. Which worker is chosen for a
+     * given connection is decided ONCE, on that connection's first packet (see
+     * [assignedWorkerFor]), and never changes afterwards - this keeps every packet of the
+     * same connection strictly ordered even while the pool's active size grows/shrinks in
+     * the background.
      */
     private fun dispatchPacket(packet: ByteArray) {
         if (packet.isNotEmpty()) {
@@ -315,38 +383,85 @@ class TrafficVpnService : VpnService() {
         when (header.protocol) {
             PROTO_UDP -> {
                 val udp = PacketUtils.parseUdp(packet, packet.size, header) ?: return
-                workerFor(header.sourceAddress.hashCode(), header.destAddress.hashCode(), udp.sourcePort, udp.destPort)
-                    ?.execute {
-                        try {
-                            udpNat.handleClientPacket(udp)
-                        } catch (e: Exception) {
-                            // isolate failures to this one packet/connection
-                        }
+                val key = connectionKey(header.sourceAddress.hostAddress, udp.sourcePort, header.destAddress.hostAddress, udp.destPort)
+                submitToAssignedWorker(key) {
+                    try {
+                        udpNat.handleClientPacket(udp)
+                    } catch (e: Exception) {
+                        // isolate failures to this one packet/connection
                     }
+                }
             }
             PROTO_TCP -> {
                 val tcp = PacketUtils.parseTcp(packet, packet.size, header) ?: return
-                workerFor(header.sourceAddress.hashCode(), header.destAddress.hashCode(), tcp.sourcePort, tcp.destPort)
-                    ?.execute {
-                        try {
-                            tcpNat.handleClientSegment(tcp)
-                        } catch (e: Exception) {
-                            // isolate failures to this one packet/connection
-                        }
+                val key = connectionKey(header.sourceAddress.hostAddress, tcp.sourcePort, header.destAddress.hostAddress, tcp.destPort)
+                submitToAssignedWorker(key) {
+                    try {
+                        tcpNat.handleClientSegment(tcp)
+                    } catch (e: Exception) {
+                        // isolate failures to this one packet/connection
                     }
+                }
             }
             else -> Unit // other protocols (ICMP etc.) aren't relayed in this stage
         }
     }
 
-    private fun workerFor(srcAddrHash: Int, dstAddrHash: Int, srcPort: Int, dstPort: Int): ExecutorService? {
+    private fun connectionKey(srcAddr: String?, srcPort: Int, dstAddr: String?, dstPort: Int) =
+        "$srcAddr:$srcPort>$dstAddr:$dstPort"
+
+    /**
+     * Looks up (or creates, on first packet) the sticky worker for this connection, then
+     * submits the work and tracks it in [pendingPacketTasks] so [scaleWorkersIfNeeded] has
+     * a real backlog signal to react to.
+     */
+    private fun submitToAssignedWorker(key: String, block: () -> Unit) {
         val workers = packetWorkers
-        if (workers.isEmpty()) return null
-        var h = srcAddrHash
-        h = 31 * h + dstAddrHash
-        h = 31 * h + srcPort
-        h = 31 * h + dstPort
-        return workers[Math.floorMod(h, workers.size)]
+        if (workers.isEmpty()) return
+        val now = System.currentTimeMillis()
+        val assignment = connectionWorkerIndex.computeIfAbsent(key) {
+            // computeIfAbsent is atomic per key, so two packets racing to open the same
+            // brand-new connection can never lock in two different workers for it.
+            WorkerAssignment(nextWorkerIndex(), now)
+        }
+        assignment.lastSeenMs = now
+        val worker = workers.getOrElse(assignment.workerIndex) { workers[0] }
+
+        pendingPacketTasks.incrementAndGet()
+        worker.execute {
+            try {
+                block()
+            } finally {
+                pendingPacketTasks.decrementAndGet()
+            }
+        }
+    }
+
+    private val roundRobinCounter = AtomicInteger(0)
+
+    /** Yeni bir bağlantı için, ŞU ANDAKİ aktif kapasiteye göre bir worker seçer (round-robin). */
+    private fun nextWorkerIndex(): Int {
+        val active = activeWorkerCount.get().coerceIn(MIN_PACKET_WORKERS, MAX_PACKET_WORKERS)
+        return Math.floorMod(roundRobinCounter.getAndIncrement(), active)
+    }
+
+    /**
+     * Backlog varsa kapasiteyi kademeli artırır (bir bağlantı patlaması sırasında
+     * gecikme/timeout yaşanmasın diye), backlog eriyince tek thread'e geri döner. Ayrıca
+     * artık aktif olmayan bağlantıların worker eşlemesini haritadan temizler.
+     */
+    private fun scaleWorkersIfNeeded() {
+        val backlog = pendingPacketTasks.get()
+        val current = activeWorkerCount.get()
+        when {
+            backlog > SCALE_UP_BACKLOG_THRESHOLD && current < MAX_PACKET_WORKERS ->
+                activeWorkerCount.compareAndSet(current, current + 1)
+            backlog == 0 && current > MIN_PACKET_WORKERS ->
+                activeWorkerCount.compareAndSet(current, current - 1)
+        }
+
+        val cutoff = System.currentTimeMillis() - CONNECTION_WORKER_TTL_MS
+        connectionWorkerIndex.entries.removeIf { it.value.lastSeenMs < cutoff }
     }
 
     private fun buildNotification(): Notification {

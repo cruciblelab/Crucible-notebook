@@ -104,6 +104,71 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val rules: StateFlow<List<BlockRule>> = app.ruleRepository.observeManualOnly()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    // "Bankacılık Modu" gibi kısıtlama profilleri - tamamen kullanıcının kendi oluşturduğu/
+    // içe aktardığı profiller (bkz. ProfileRepository). Uygulamayla gelen dahili bir profil YOK.
+    val availableProfiles: StateFlow<List<com.cruciblelab.trafficlogger.data.NetworkProfile>> =
+        app.profileRepository.observeAll()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** null = hiçbir kısıtlama profili aktif değil (normal, tam erişim modu). */
+    val activeProfile: StateFlow<com.cruciblelab.trafficlogger.data.NetworkProfile?> =
+        app.profileRepository.activeProfile
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun setActiveProfile(id: String?) {
+        viewModelScope.launch { app.profileRepository.setActiveProfile(id) }
+    }
+
+    // Cihaza yüklü uygulamaların listesi - profil oluşturma ekranında "izinli uygulamalar"
+    // seçimi için kullanılır. Bir kere, ilk erişimde yüklenir (PackageManager taraması
+    // ucuz değil), sonrasında bellekte tutulur.
+    private val _installedApps = MutableStateFlow<List<com.cruciblelab.trafficlogger.util.ResolvedApp>>(emptyList())
+    val installedApps: StateFlow<List<com.cruciblelab.trafficlogger.util.ResolvedApp>> = _installedApps.asStateFlow()
+
+    fun loadInstalledAppsIfNeeded() {
+        if (_installedApps.value.isNotEmpty()) return
+        viewModelScope.launch {
+            _installedApps.value = com.cruciblelab.trafficlogger.util.loadInstalledApps(app)
+        }
+    }
+
+    /**
+     * Profili oluşturmayı dener; [com.cruciblelab.trafficlogger.data.ProfileRepository.create]
+     * geçersiz girişte (örn. DENY politikası + boş izin listesi, boş isim) IllegalArgumentException
+     * fırlatır - burada yakalanıp [onResult] ile çağırana iletilir, UI'da crash olmadan gösterilebilsin.
+     */
+    fun createProfile(
+        name: String,
+        defaultPolicy: com.cruciblelab.trafficlogger.data.NetworkProfile.DefaultPolicy,
+        allowedPackages: Set<String>,
+        domainRestrictions: Map<String, Set<String>> = emptyMap(),
+        unknownDomainPolicy: com.cruciblelab.trafficlogger.data.NetworkProfile.UnknownDomainPolicy =
+            com.cruciblelab.trafficlogger.data.NetworkProfile.UnknownDomainPolicy.BLOCK,
+        onResult: (Result<String>) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val result = runCatching {
+                app.profileRepository.create(name, defaultPolicy, allowedPackages, domainRestrictions, unknownDomainPolicy)
+            }
+            onResult(result)
+        }
+    }
+
+    /**
+     * JSON'dan profil içe aktarmayı dener; hatalı JSON ([org.json.JSONException]) ya da
+     * geçersiz şema burada yakalanır - çağıran taraf [onResult] ile hatayı gösterebilir.
+     */
+    fun importProfileJson(json: String, nameOverride: String? = null, onResult: (Result<String>) -> Unit = {}) {
+        viewModelScope.launch {
+            val result = runCatching { app.profileRepository.importJson(json, nameOverride) }
+            onResult(result)
+        }
+    }
+
+    fun deleteProfile(id: String) {
+        viewModelScope.launch { app.profileRepository.delete(id) }
+    }
+
     /** Blacklists just this one app + destination pair, not the whole domain everywhere. */
     fun blockEntry(entry: TrafficEntry) {
         viewModelScope.launch {
