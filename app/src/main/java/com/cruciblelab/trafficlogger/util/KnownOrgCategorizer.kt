@@ -20,12 +20,16 @@ package com.cruciblelab.trafficlogger.util
  */
 object KnownOrgCategorizer {
 
-    enum class Category(val displayName: String) {
-        CLOUD_HOSTING("Bulut / Barındırma Devi"),
-        CDN("İçerik Dağıtım Ağı (CDN)"),
-        SOCIAL_MESSAGING("Sosyal Medya / Mesajlaşma"),
-        DEVICE_OEM("Cihaz Üreticisi Servisi"),
-        OTHER_MAJOR("Bilinen Büyük Şirket")
+    enum class Category(val displayName: String, val sharedInfrastructure: Boolean) {
+        // sharedInfrastructure = true: herhangi biri (iyi ya da kötü niyetli) burada kiralık
+        // sunucu/IP alabilir. Eşleşme yalnızca "kim barındırıyor" bilgisidir, hedefin o şirket
+        // olduğu ya da güvenilir olduğu anlamına GELMEZ. UI bu ikisini asla aynı "onaylı"
+        // görünümle göstermemeli.
+        CLOUD_HOSTING("Bulut / Barındırma Devi", sharedInfrastructure = true),
+        CDN("İçerik Dağıtım Ağı (CDN)", sharedInfrastructure = true),
+        SOCIAL_MESSAGING("Sosyal Medya / Mesajlaşma", sharedInfrastructure = false),
+        DEVICE_OEM("Cihaz Üreticisi Servisi", sharedInfrastructure = false),
+        OTHER_MAJOR("Bilinen Büyük Şirket", sharedInfrastructure = false)
     }
 
     data class Match(val company: String, val category: Category)

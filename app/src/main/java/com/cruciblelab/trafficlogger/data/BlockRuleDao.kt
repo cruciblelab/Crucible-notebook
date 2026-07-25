@@ -20,4 +20,12 @@ interface BlockRuleDao {
 
     @Query("DELETE FROM block_rules WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    /** Uygulama-bağımsız (appPackageName IS NULL), belirli bir domain'e ait kural var mı? */
+    @Query("SELECT * FROM block_rules WHERE appPackageName IS NULL AND matchValue = :domain LIMIT 1")
+    suspend fun findAppAgnostic(domain: String): BlockRule?
+
+    /** Bir tracker kategorisini kapatırken (izin ver) o domain'e ait kuralı kaldırır. */
+    @Query("DELETE FROM block_rules WHERE appPackageName IS NULL AND matchValue = :domain")
+    suspend fun deleteAppAgnostic(domain: String)
 }

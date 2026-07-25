@@ -2,7 +2,11 @@ package com.cruciblelab.trafficlogger.data
 
 import java.util.concurrent.TimeUnit
 
-class TrafficRepository(private val dao: TrafficDao) {
+class TrafficRepository(
+    private val dao: TrafficDao,
+    /** Yeni bir hedef IP loglandığında çağrılır - [IpResolutionQueue.submit] buraya bağlanır. */
+    private val onNewDestination: ((String) -> Unit)? = null
+) {
     fun observeAll() = dao.observeAll()
 
     fun observeById(id: Long) = dao.observeById(id)
@@ -10,7 +14,11 @@ class TrafficRepository(private val dao: TrafficDao) {
     fun observeConnectionHistory(packageName: String, domain: String?, destIp: String) =
         dao.observeConnectionHistory(packageName, domain, destIp)
 
-    suspend fun insert(entry: TrafficEntry): Long = dao.insert(entry)
+    suspend fun insert(entry: TrafficEntry): Long {
+        val id = dao.insert(entry)
+        if (entry.destIp.isNotBlank()) onNewDestination?.invoke(entry.destIp)
+        return id
+    }
 
     suspend fun update(entry: TrafficEntry) = dao.update(entry)
 

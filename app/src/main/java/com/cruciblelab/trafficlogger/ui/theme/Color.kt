@@ -8,6 +8,9 @@ val AccentVioletDark = Color(0xFF5849C2)
 val AccentMint = Color(0xFF00C2A8)
 val AccentCoral = Color(0xFFFF6B6B)
 val AccentAmber = Color(0xFFFFA94D)
+// Kanıtlanmış imza değişikliği (SIGNATURE_MISMATCH) gibi en yüksek önem seviyesi için -
+// AccentCoral'dan (itibar bazlı, sezgisel "flagged") kasıtlı olarak daha koyu/doygun.
+val AccentCritical = Color(0xFFD63031)
 
 val SurfaceWhite = Color(0xFFFFFFFF)
 val BackgroundOffWhite = Color(0xFFF6F6FA)

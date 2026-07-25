@@ -177,6 +177,14 @@ private fun WelcomeStep() {
             color = TextSecondary,
             textAlign = TextAlign.Center
         )
+        Spacer(modifier = Modifier.height(14.dp))
+        Text(
+            "Not: Bu uygulama bir antivirüs değildir. Gösterilen IP/itibar bilgileri dış " +
+                "kaynaklardan gelir, hatalı veya eksik olabilir; kesin güvenlik garantisi vermez.",
+            style = MaterialTheme.typography.labelSmall,
+            color = TextSecondary,
+            textAlign = TextAlign.Center
+        )
     }
 }
 

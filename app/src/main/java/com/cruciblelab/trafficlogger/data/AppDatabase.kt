@@ -12,9 +12,10 @@ import androidx.room.TypeConverters
         IpInfoCache::class,
         BlockRule::class,
         ReputationSource::class,
-        AppReputationEntry::class
+        AppReputationEntry::class,
+        PackageSignatureRecord::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -24,6 +25,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun ipInfoDao(): IpInfoDao
     abstract fun blockRuleDao(): BlockRuleDao
     abstract fun reputationDao(): ReputationDao
+    abstract fun packageSignatureDao(): PackageSignatureDao
 
     companion object {
         @Volatile

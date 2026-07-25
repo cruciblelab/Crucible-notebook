@@ -59,7 +59,15 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
-private data class Stat(val label: String, val bytes: Long, val bytesUp: Long, val bytesDown: Long, val count: Int)
+private data class Stat(
+    val label: String,
+    val bytes: Long,
+    val bytesUp: Long,
+    val bytesDown: Long,
+    val count: Int,
+    /** byDomain grubu için: o domain'e ait örnek bir hedef IP - ASN fallback için kullanılır. */
+    val sampleDestIp: String? = null
+)
 
 private enum class TimelineGranularity(val label: String) {
     HOURLY("Saatlik"),
@@ -108,7 +116,11 @@ private fun buildTimelineBuckets(entries: List<TrafficEntry>, granularity: Timel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StatsScreen(entries: List<TrafficEntry>, onBack: () -> Unit) {
+fun StatsScreen(
+    entries: List<TrafficEntry>,
+    ipInfoMap: Map<String, com.cruciblelab.trafficlogger.data.IpInfoCache>,
+    onBack: () -> Unit
+) {
     val totalBytes = remember(entries) { entries.sumOf { it.bytesUp + it.bytesDown } }
     val blockedCount = remember(entries) { entries.count { it.blocked } }
 
@@ -134,7 +146,8 @@ fun StatsScreen(entries: List<TrafficEntry>, onBack: () -> Unit) {
                     bytes = list.sumOf { it.bytesUp + it.bytesDown },
                     bytesUp = list.sumOf { it.bytesUp },
                     bytesDown = list.sumOf { it.bytesDown },
-                    count = list.size
+                    count = list.size,
+                    sampleDestIp = list.firstOrNull()?.destIp
                 )
             }
             .sortedByDescending { it.bytes }
@@ -178,7 +191,7 @@ fun StatsScreen(entries: List<TrafficEntry>, onBack: () -> Unit) {
             item { SectionTitle("En çok veri kullanan uygulamalar") }
             item { StatBarList(byApp) }
             item { SectionTitle("En çok bağlanılan adresler") }
-            item { StatBarList(byDomain, monospace = true, showCategoryBadge = true) }
+            item { StatBarList(byDomain, monospace = true, showCategoryBadge = true, ipInfoMap = ipInfoMap) }
             item {
                 SectionTitle("Trafik yoğunluğu")
                 Spacer(modifier = Modifier.height(10.dp))
@@ -295,13 +308,29 @@ private fun SummaryCard(
     }
 }
 
+/** TrackerCatalog'daki tüm domain listeleri (izleme + tam engel) içinde suffix eşleşmesi arar. */
+private fun matchTrackerCatalog(domain: String): String? {
+    for (company in com.cruciblelab.trafficlogger.data.TrackerCatalog.ALL) {
+        val inTracking = company.trackingDomains.any { domain.equals(it, ignoreCase = true) || domain.endsWith(".$it", ignoreCase = true) }
+        if (inTracking) return "${company.title} (izleme ucu)"
+        val inFull = company.fullBlockDomains.any { domain.equals(it, ignoreCase = true) || domain.endsWith(".$it", ignoreCase = true) }
+        if (inFull) return company.title
+    }
+    return null
+}
+
 @Composable
 private fun SectionTitle(text: String) {
     Text(text, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
 }
 
 @Composable
-private fun StatBarList(stats: List<Stat>, monospace: Boolean = false, showCategoryBadge: Boolean = false) {
+private fun StatBarList(
+    stats: List<Stat>,
+    monospace: Boolean = false,
+    showCategoryBadge: Boolean = false,
+    ipInfoMap: Map<String, com.cruciblelab.trafficlogger.data.IpInfoCache> = emptyMap()
+) {
     if (stats.isEmpty()) {
         Text("Henüz veri yok", style = MaterialTheme.typography.bodySmall, color = TextTertiary)
         return
@@ -316,12 +345,24 @@ private fun StatBarList(stats: List<Stat>, monospace: Boolean = false, showCateg
             stats.forEachIndexed { index, stat ->
                 val color = AvatarPalette[Math.floorMod(stat.label.hashCode(), AvatarPalette.size)]
                 val fraction = (stat.bytes.toFloat() / max).coerceIn(0.03f, 1f)
-                // Best-effort heuristic match against the domain/address string itself
-                // (e.g. "googlevideo.com", "akamaiedge.net") - a lighter-weight cue than
-                // the ASN-based match on the detail screen, just for a quick visual tag.
-                val knownMatch = if (showCategoryBadge) {
-                    com.cruciblelab.trafficlogger.util.KnownOrgCategorizer.categorize(stat.label, null)
+
+                // İki aşamalı sınıflandırma - domain hiçbir zaman sessizce es geçilmiyor:
+                // 1) Önce elimizdeki kayıtlı (TrackerCatalog) domain listeleriyle TAM eşleşme
+                //    dene - bu güvenilir, string bazlı ama bilinçli/küratörlü bir liste.
+                // 2) Eşleşme yoksa, bu domain'in hedef IP'si için ASN/organizasyon bilgisi
+                //    çözülmüşse (arka planda pasif olarak IpResolutionQueue dolduruyor),
+                //    KnownOrgCategorizer ile GERÇEK ASN'ye göre göster - "olası" değil, IP'nin
+                //    gerçek BGP kaydına dayanıyor, sadece hangi ürün/servis olduğu tahmini.
+                // 3) O da yoksa (henüz çözülmedi) hiçbir şey uydurmuyoruz, domain adı zaten
+                //    görünür durumda - listede olmaması "güvenli" anlamına gelmiyor, kullanıcı
+                //    ismin kendisine bakabilir.
+                val catalogMatch = if (showCategoryBadge) matchTrackerCatalog(stat.label) else null
+                val asnFallback = if (showCategoryBadge && catalogMatch == null) {
+                    stat.sampleDestIp?.let { ip -> ipInfoMap[ip] }
+                        ?.let { info -> com.cruciblelab.trafficlogger.util.KnownOrgCategorizer.categorize(info.org, info.isp) }
+                        ?.takeIf { !it.category.sharedInfrastructure }
                 } else null
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
@@ -331,11 +372,18 @@ private fun StatBarList(stats: List<Stat>, monospace: Boolean = false, showCateg
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        if (knownMatch != null) {
-                            Text(
-                                "✓ ${knownMatch.company} · ${knownMatch.category.displayName}",
+                        when {
+                            catalogMatch != null -> Text(
+                                "Bilinen: ${catalogMatch}",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = com.cruciblelab.trafficlogger.ui.theme.AccentMint,
+                                color = TextTertiary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            asnFallback != null -> Text(
+                                "ASN'ye göre: ${asnFallback.company} · ${asnFallback.category.displayName}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextTertiary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )

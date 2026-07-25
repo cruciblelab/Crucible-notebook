@@ -78,6 +78,8 @@ fun SettingsScreen(
                 InfoCard(stringResource(R.string.vpn_warning))
                 Spacer(modifier = Modifier.height(12.dp))
                 InfoCard(stringResource(R.string.https_disclaimer))
+                Spacer(modifier = Modifier.height(12.dp))
+                InfoCard(stringResource(R.string.data_accuracy_disclaimer))
 
                 Text(
                     "Kayıt saklama süresi",

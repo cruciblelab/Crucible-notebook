@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -49,10 +50,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.cruciblelab.trafficlogger.R
 import com.cruciblelab.trafficlogger.data.PresetReputationCatalog
 import com.cruciblelab.trafficlogger.data.ReputationSource
+import com.cruciblelab.trafficlogger.ui.theme.AccentAmber
 import com.cruciblelab.trafficlogger.ui.theme.AccentCoral
 import com.cruciblelab.trafficlogger.ui.theme.AccentMint
 import com.cruciblelab.trafficlogger.ui.theme.AccentViolet
@@ -112,6 +116,7 @@ fun ReputationScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            item { ReputationDisclaimerCard() }
             item { SectionLabel("Hazır veritabanları") }
             items(presets, key = { it.key }) { preset ->
                 PresetCard(
@@ -205,6 +210,25 @@ fun ReputationScreen(
                 TextButton(onClick = { deleteCandidate = null }) { Text("Vazgeç") }
             }
         )
+    }
+}
+
+@Composable
+private fun ReputationDisclaimerCard() {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = AccentAmber.copy(alpha = 0.12f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Icon(Icons.Filled.WarningAmber, contentDescription = null, tint = AccentAmber, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                stringResource(R.string.reputation_disclaimer),
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
+            )
+        }
     }
 }
 

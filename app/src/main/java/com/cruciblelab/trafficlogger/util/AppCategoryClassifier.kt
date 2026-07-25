@@ -12,15 +12,21 @@ import com.cruciblelab.trafficlogger.data.ReputationVerdict
  */
 object AppCategoryClassifier {
 
-    enum class Category { SYSTEM, TRUSTED, UNKNOWN, FLAGGED }
+    enum class Category { SYSTEM, TRUSTED, UNKNOWN, FLAGGED, SIGNATURE_MISMATCH }
 
     fun classify(
         packageName: String,
         isSystemApp: Boolean,
-        activeVerdicts: List<PackageVerdict>
+        activeVerdicts: List<PackageVerdict>,
+        signatureMismatch: Boolean = false
     ): Category {
         val match = activeVerdicts.firstOrNull { entry -> matches(entry, packageName) }
         return when {
+            // Kanıtlanmış bir imza değişikliği, itibar veritabanındaki herhangi bir eşleşmeden
+            // (hatta "sistem uygulaması" bayrağından) daha güvenilir bir sinyaldir - bu yüzden
+            // en üstte. Bir paket adının sistem/güvenilir görünmesi, imzası değiştiyse artık
+            // hiçbir şey ifade etmez.
+            signatureMismatch -> Category.SIGNATURE_MISMATCH
             match?.verdict == ReputationVerdict.FLAGGED -> Category.FLAGGED
             isSystemApp -> Category.SYSTEM
             match?.verdict == ReputationVerdict.TRUSTED -> Category.TRUSTED

@@ -46,6 +46,7 @@ fun TrafficNavGraph(viewModel: MainViewModel, onToggleVpn: () -> Unit) {
     val ipInfoMap by viewModel.ipInfoMap.collectAsState()
     val rules by viewModel.rules.collectAsState()
     val homeSummary by viewModel.homeSummary.collectAsState()
+    val companyProtectionStates by viewModel.companyProtectionStates.collectAsState()
     val reputationSources by viewModel.reputationSources.collectAsState()
 
     NavHost(
@@ -68,6 +69,12 @@ fun TrafficNavGraph(viewModel: MainViewModel, onToggleVpn: () -> Unit) {
                 summary = homeSummary,
                 vpnRunning = vpnRunning,
                 onToggleVpn = onToggleVpn,
+                companyProtectionStates = companyProtectionStates,
+                onSetTrackingBlocked = viewModel::setTrackingBlocked,
+                onSetFullyBlocked = viewModel::setFullyBlocked,
+                ipInfoMap = ipInfoMap,
+                onRequestIpInfo = viewModel::requestIpInfo,
+                onQuickBlockDomain = viewModel::quickBlockDomain,
                 onOpenList = { navController.navigate(Routes.LIST) },
                 onOpenStats = { navController.navigate(Routes.STATS) },
                 onOpenRules = { navController.navigate(Routes.RULES) },
@@ -92,7 +99,7 @@ fun TrafficNavGraph(viewModel: MainViewModel, onToggleVpn: () -> Unit) {
             )
         }
         composable(Routes.STATS) {
-            StatsScreen(entries = entries, onBack = { navController.popBackStack() })
+            StatsScreen(entries = entries, ipInfoMap = ipInfoMap, onBack = { navController.popBackStack() })
         }
         composable(Routes.RULES) {
             RulesScreen(

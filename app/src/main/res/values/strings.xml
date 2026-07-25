@@ -9,4 +9,6 @@
     <string name="https_disclaimer">Şifreli (HTTPS) bağlantıların içeriği görüntülenemez. Yalnızca hangi uygulamanın hangi alan adına/adrese ne kadar veri gönderdiği görülebilir.</string>
     <string name="data_limit_notification_channel">Veri Kullanım Uyarıları</string>
     <string name="data_limit_notification_title">Günlük veri limiti aşıldı</string>
+    <string name="data_accuracy_disclaimer">Bu uygulamadaki IP/ASN/organizasyon bilgileri ve itibar (reputation) verileri, dış servislerden ve topluluk kaynaklı listelerden gelir; doğruluğu garanti edilmez ve hatalı, eksik veya güncel olmayan sonuçlar içerebilir. Bu uygulama bir antivirüs veya güvenlik ürünü değildir; kötü amaçlı yazılımları tespit etme veya engelleme garantisi vermez. Burada gösterilen bilgilere dayanarak kritik güvenlik kararları almadan önce başka kaynaklarla doğrulama yapın.</string>
+    <string name="reputation_disclaimer">Hazır ve içe aktarılan veritabanları üçüncü taraf/topluluk kaynaklıdır; Cruciblelab bu listelerin doğruluğunu, güncelliğini veya eksiksizliğini garanti etmez. "TRUSTED" (güvenilir) işareti bir uygulamanın zararsız olduğunu kanıtlamaz; "FLAGGED" (işaretli) işareti de kesin olarak zararlı olduğu anlamına gelmez. Otomatik engelleme özelliğini dikkatli kullanın, yanlış pozitif/negatif olabilir.</string>
 </resources>

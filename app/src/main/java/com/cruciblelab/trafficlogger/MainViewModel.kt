@@ -12,6 +12,8 @@ import com.cruciblelab.trafficlogger.data.TrafficEntry
 import com.cruciblelab.trafficlogger.util.AppCategoryClassifier
 import com.cruciblelab.trafficlogger.util.startOfDayMillis
 import com.cruciblelab.trafficlogger.vpn.TrafficVpnService
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -29,12 +31,16 @@ data class TopAppUsage(
     val category: AppCategoryClassifier.Category
 )
 
+/** Trafikte görülen ama TrackerCatalog'daki kürasyonlu listede olmayan bir domain. */
+data class ObservedOtherDomain(val domain: String, val destIp: String, val bytes: Long)
+
 /** Ana Sayfa'daki tek bakışlık özet kartının tüm verisi. */
 data class HomeSummary(
     val totalBytesToday: Long,
     val topApps: List<TopAppUsage>,
     val unknownAppLabels: List<String>,
-    val flaggedAppLabels: List<String>
+    val flaggedAppLabels: List<String>,
+    val otherObservedDomains: List<ObservedOtherDomain> = emptyList()
 ) {
     val allKnown: Boolean get() = unknownAppLabels.isEmpty() && flaggedAppLabels.isEmpty()
 }
@@ -103,17 +109,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ip -> resolved ASN / organization / country info, filled in lazily as
     // rows become visible. See IpInfoRepository for caching behaviour.
+    //
+    // ÖNEMLİ: bu SADECE uygulama açıkken (bir satır ekranda göründüğünde requestIpInfo
+    // çağrılır) çalışır - VPN servisi (arka planda, trafik akarken) bu repository'ye hiç
+    // dokunmaz, bu yüzden arka planda ekstra ağ isteği/güç tüketimi olmaz.
+    //
+    // Tek tek gelen istekler ESKİDEN her biri kendi coroutine'ini anında ateşliyordu -
+    // hızlı scroll'da 15-20 istek birden gidebiliyordu. Şimdi TEK sıralı kuyruk + aralarda
+    // küçük bir bekleme (bkz. IP_LOOKUP_PACING_MS): istekler art arda, yavaş yavaş, "ekonomik"
+    // şekilde işleniyor. Kuyruk viewModelScope'a bağlı - uygulama tamamen kapanınca
+    // (ViewModel temizlenince) otomatik durur, arkada asılı kalmaz.
     private val _ipInfoMap = MutableStateFlow<Map<String, IpInfoCache>>(emptyMap())
     val ipInfoMap: StateFlow<Map<String, IpInfoCache>> = _ipInfoMap.asStateFlow()
-    private val pendingIpLookups = mutableSetOf<String>()
+    private val queuedIps = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+    private val ipLookupQueue = Channel<String>(capacity = Channel.UNLIMITED)
+
+    init {
+        viewModelScope.launch {
+            for (ip in ipLookupQueue) {
+                if (!_ipInfoMap.value.containsKey(ip)) {
+                    val info = app.ipInfoRepository.getOrFetch(ip)
+                    _ipInfoMap.value = _ipInfoMap.value + (ip to info)
+                }
+                queuedIps.remove(ip)
+                delay(IP_LOOKUP_PACING_MS)
+            }
+        }
+    }
 
     fun requestIpInfo(ip: String) {
-        if (ip.isBlank() || _ipInfoMap.value.containsKey(ip) || !pendingIpLookups.add(ip)) return
-        viewModelScope.launch {
-            val info = app.ipInfoRepository.getOrFetch(ip)
-            _ipInfoMap.value = _ipInfoMap.value + (ip to info)
-            pendingIpLookups.remove(ip)
-        }
+        if (ip.isBlank() || _ipInfoMap.value.containsKey(ip) || !queuedIps.add(ip)) return
+        ipLookupQueue.trySend(ip)
     }
 
     fun connectionHistory(entry: TrafficEntry): Flow<List<TrafficEntry>> =
@@ -129,8 +155,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { app.settingsRepository.setDailyLimitMb(mb) }
     }
 
+    // ---- Ana Sayfa "Veri Toplama Kontrolleri" (basit switch + ileri düzey tam engel) ----
+
+    val companyProtectionStates: StateFlow<Map<String, com.cruciblelab.trafficlogger.data.CompanyProtectionState>> =
+        app.trackerBlockRepository.observeProtectionStates()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    fun setTrackingBlocked(company: com.cruciblelab.trafficlogger.data.TrackerCatalog.Company, blocked: Boolean) {
+        viewModelScope.launch { app.trackerBlockRepository.setTrackingBlocked(company, blocked) }
+    }
+
+    fun setFullyBlocked(company: com.cruciblelab.trafficlogger.data.TrackerCatalog.Company, blocked: Boolean) {
+        viewModelScope.launch { app.trackerBlockRepository.setFullyBlocked(company, blocked) }
+    }
+
     fun clearHistory() {
         viewModelScope.launch { app.trafficRepository.clearAll() }
+    }
+
+    /** Ana Sayfa'daki "diğer görülen kaynaklar" listesinden tek dokunuşla, uygulama-bağımsız engelleme. */
+    fun quickBlockDomain(domain: String) {
+        viewModelScope.launch { app.ruleRepository.add(RuleType.BLACKLIST, null, null, domain) }
     }
 
     // ---- Uygulama kategorizasyonu / Ana Sayfa özeti ----
@@ -138,13 +183,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val activeReputationVerdicts = app.reputationRepository.observeActiveVerdicts()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    fun categoryFor(packageName: String): AppCategoryClassifier.Category = AppCategoryClassifier.classify(
-        packageName = packageName,
-        isSystemApp = app.packageClassifier.isSystemApp(packageName),
-        activeVerdicts = activeReputationVerdicts.value
-    )
+    private val mismatchedPackages = app.packageIntegrityRepository.mismatchedPackages
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
-    val homeSummary: StateFlow<HomeSummary> = combine(entries, activeReputationVerdicts) { list, verdicts ->
+    /** Bir paketi arka planda imza bütünlüğü açısından kontrol etmeyi tetikler (fire-and-forget). */
+    private fun checkIntegrity(packageName: String) {
+        viewModelScope.launch { app.packageIntegrityRepository.ensureChecked(packageName) }
+    }
+
+    fun categoryFor(packageName: String): AppCategoryClassifier.Category {
+        checkIntegrity(packageName)
+        return AppCategoryClassifier.classify(
+            packageName = packageName,
+            isSystemApp = app.packageClassifier.isSystemApp(packageName),
+            activeVerdicts = activeReputationVerdicts.value,
+            signatureMismatch = mismatchedPackages.value.contains(packageName)
+        )
+    }
+
+    val homeSummary: StateFlow<HomeSummary> = combine(entries, activeReputationVerdicts, mismatchedPackages) { list, verdicts, mismatches ->
         val todayStart = startOfDayMillis()
         val todayEntries = list.filter { it.timestamp >= todayStart }
         val totalToday = todayEntries.sumOf { it.bytesUp + it.bytesDown }
@@ -154,15 +211,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             .sortedByDescending { it.third }
 
         val classified = byApp.map { (pkg, label, bytes) ->
-            val category = AppCategoryClassifier.classify(pkg, app.packageClassifier.isSystemApp(pkg), verdicts)
+            checkIntegrity(pkg)
+            val category = AppCategoryClassifier.classify(
+                pkg,
+                app.packageClassifier.isSystemApp(pkg),
+                verdicts,
+                signatureMismatch = mismatches.contains(pkg)
+            )
             TopAppUsage(pkg, label, bytes, category)
         }
+
+        val curatedDomains = com.cruciblelab.trafficlogger.data.TrackerCatalog.ALL
+            .flatMap { it.trackingDomains + it.fullBlockDomains }
+            .toSet()
+
+        fun isCurated(domain: String): Boolean =
+            curatedDomains.any { domain.equals(it, ignoreCase = true) || domain.endsWith(".$it", ignoreCase = true) }
+
+        // Listede olmayan bir domain'i sessizce ATLAMIYORUZ: en çok veri çeken, kürasyonlu
+        // listede olmayan domain'leri ayrıca çıkarıyoruz - Ana Sayfa bunları ASN/organizasyon
+        // bilgisiyle (bilinirse) gösterir, tamamen görünmez kalmazlar.
+        val otherDomains = todayEntries
+            .filter { !it.domain.isNullOrBlank() && !isCurated(it.domain) }
+            .groupBy { it.domain!! }
+            .map { (domain, rows) -> ObservedOtherDomain(domain, rows.first().destIp, rows.sumOf { it.bytesUp + it.bytesDown }) }
+            .sortedByDescending { it.bytes }
+            .take(5)
 
         HomeSummary(
             totalBytesToday = totalToday,
             topApps = classified.take(3),
             unknownAppLabels = classified.filter { it.category == AppCategoryClassifier.Category.UNKNOWN }.map { it.label },
-            flaggedAppLabels = classified.filter { it.category == AppCategoryClassifier.Category.FLAGGED }.map { it.label }
+            flaggedAppLabels = (classified.filter { it.category == AppCategoryClassifier.Category.FLAGGED } +
+                classified.filter { it.category == AppCategoryClassifier.Category.SIGNATURE_MISMATCH }).map { it.label },
+            otherObservedDomains = otherDomains
         )
     }.stateIn(
         viewModelScope,
@@ -204,5 +286,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteReputationSource(source: ReputationSource) {
         viewModelScope.launch { app.reputationRepository.delete(source) }
+    }
+
+    companion object {
+        /** IP bilgisi istekleri arasında bilerek bırakılan boşluk - "ekonomik", art arda değil. */
+        private const val IP_LOOKUP_PACING_MS = 400L
     }
 }

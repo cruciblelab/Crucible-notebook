@@ -247,13 +247,25 @@ private fun IpInfoCard(ipInfo: IpInfoCache?, ip: String) {
                     InfoRow(icon = Icons.Filled.Business, emoji = null, label = "Sağlayıcı / ASN sahibi", value = it)
                 }
                 KnownOrgCategorizer.categorize(ipInfo.org, ipInfo.isp)?.let { match ->
-                    InfoRow(
-                        icon = Icons.Filled.CheckCircle,
-                        emoji = null,
-                        label = "Kategori",
-                        value = "${match.company} · ${match.category.displayName}",
-                        valueColor = AccentMint
-                    )
+                    if (match.category.sharedInfrastructure) {
+                        // Kiralık altyapı: bu şirket sadece sunucuyu barındırıyor, hedefin kim
+                        // olduğunu doğrulamaz. Zararlı bir sunucu da aynı buluta ait olabilir -
+                        // bu yüzden bilgilendirici (nötr) göster, "onaylandı" gibi değil.
+                        InfoRow(
+                            icon = Icons.Filled.Business,
+                            emoji = null,
+                            label = "Barındırma",
+                            value = "${match.company} (${match.category.displayName}) — hedefin kendisi değil, sadece sunucuyu kiraladığı yer"
+                        )
+                    } else {
+                        InfoRow(
+                            icon = Icons.Filled.CheckCircle,
+                            emoji = null,
+                            label = "Kategori",
+                            value = "${match.company} · ${match.category.displayName}",
+                            valueColor = AccentMint
+                        )
+                    }
                 }
                 ipInfo.asn?.let {
                     InfoRow(icon = Icons.Filled.Tag, emoji = null, label = "ASN", value = "AS$it")

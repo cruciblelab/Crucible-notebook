@@ -124,6 +124,13 @@ class TrafficVpnService : VpnService() {
             .setSession(getString(R.string.app_name))
             .addAddress("10.0.0.2", 32)
             .addRoute("0.0.0.0", 0) // route ALL IPv4 traffic into the tunnel, not just DNS
+            // IPv6'yı da tünele alıyoruz - AMA relay etmiyoruz (bkz. dispatchPacket, IPv6
+            // paketleri kasıtlı olarak düşürülüyor). Amaç IPv6'ya tam destek eklemek değil,
+            // "IPv6 tünelin tamamen dışından geçip her türlü loglama/engellemeyi atlıyor"
+            // sızıntısını kapatmak. Rotayı tünele alınca modern uygulamalar (Happy Eyeballs)
+            // IPv6 denemesi başarısız olunca otomatik IPv4'e düşer - ki o zaten tam kapsamlı.
+            .addAddress("fd00:cafe:babe::2", 128)
+            .addRoute("::", 0)
             .setMtu(1500)
             .setBlocking(true)
 
@@ -293,6 +300,17 @@ class TrafficVpnService : VpnService() {
      * same worker (preserving order) while unrelated connections run in parallel.
      */
     private fun dispatchPacket(packet: ByteArray) {
+        if (packet.isNotEmpty()) {
+            val ipVersion = (packet[0].toInt() and 0xFF) shr 4
+            if (ipVersion == 6) {
+                // Bilerek relay ETMİYORUZ: tam bir IPv6 NAT/relay motoru burada yok. Amaç
+                // IPv6'yı desteklemek değil, tünele girip görünür olmasını sağlamak - bu sayede
+                // hiç işlenmeden ağa direkt sızmıyor. Uygulama tarafında bu bir "bağlantı
+                // başarısız" gibi görünür, modern uygulamalar (Happy Eyeballs) otomatik IPv4'e
+                // düşer - ki IPv4 burada tam kapsamlı loglanıp/engelleniyor.
+                return
+            }
+        }
         val header = PacketUtils.parseIpv4Header(packet, packet.size) ?: return
         when (header.protocol) {
             PROTO_UDP -> {

@@ -47,11 +47,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.cruciblelab.trafficlogger.HomeSummary
 import com.cruciblelab.trafficlogger.TopAppUsage
 import com.cruciblelab.trafficlogger.ui.theme.AccentAmber
 import com.cruciblelab.trafficlogger.ui.theme.AccentCoral
+import com.cruciblelab.trafficlogger.ui.theme.AccentCritical
 import com.cruciblelab.trafficlogger.ui.theme.AccentMint
 import com.cruciblelab.trafficlogger.ui.theme.AccentViolet
 import com.cruciblelab.trafficlogger.ui.theme.AvatarPalette
@@ -72,6 +74,12 @@ fun HomeScreen(
     summary: HomeSummary,
     vpnRunning: Boolean,
     onToggleVpn: () -> Unit,
+    companyProtectionStates: Map<String, com.cruciblelab.trafficlogger.data.CompanyProtectionState>,
+    onSetTrackingBlocked: (com.cruciblelab.trafficlogger.data.TrackerCatalog.Company, Boolean) -> Unit,
+    onSetFullyBlocked: (com.cruciblelab.trafficlogger.data.TrackerCatalog.Company, Boolean) -> Unit,
+    ipInfoMap: Map<String, com.cruciblelab.trafficlogger.data.IpInfoCache>,
+    onRequestIpInfo: (String) -> Unit,
+    onQuickBlockDomain: (String) -> Unit,
     onOpenList: () -> Unit,
     onOpenStats: () -> Unit,
     onOpenRules: () -> Unit,
@@ -116,6 +124,25 @@ fun HomeScreen(
                     }
                 }
             }
+            item { SectionLabel("Veri toplama kontrolleri") }
+            item {
+                PrivacyControlsCard(
+                    companyProtectionStates = companyProtectionStates,
+                    onSetTrackingBlocked = onSetTrackingBlocked,
+                    onSetFullyBlocked = onSetFullyBlocked
+                )
+            }
+            if (summary.otherObservedDomains.isNotEmpty()) {
+                item { SectionLabel("Listede olmayan, bugün görülen diğer kaynaklar") }
+                item {
+                    OtherSourcesCard(
+                        domains = summary.otherObservedDomains,
+                        ipInfoMap = ipInfoMap,
+                        onRequestIpInfo = onRequestIpInfo,
+                        onQuickBlockDomain = onQuickBlockDomain
+                    )
+                }
+            }
             item { SectionLabel("En çok veri kullanan 3 uygulama") }
             if (summary.topApps.isEmpty()) {
                 item {
@@ -151,6 +178,216 @@ fun HomeScreen(
                     onOpenRules = onOpenRules,
                     onOpenReputation = onOpenReputation
                 )
+            }
+        }
+    }
+}
+
+/**
+ * "Basit üstte, karmaşık derinde" ilkesi: her satır tek bir switch (sadece izleme uçlarını
+ * keser) ve tek cümlelik açıklama - hiçbir teknik terim yok. Şirketin TÜM domain'lerini
+ * kesen ("tamamen engelle") ileri düzey seçenek, satıra dokunup açan (varsayılan kapalı)
+ * bir alt bölümde saklı ve etkinleştirmeden önce onay istiyor - çünkü o seçenek ana
+ * uygulamayı/siteyi de kullanılamaz hale getirir.
+ */
+@Composable
+private fun PrivacyControlsCard(
+    companyProtectionStates: Map<String, com.cruciblelab.trafficlogger.data.CompanyProtectionState>,
+    onSetTrackingBlocked: (com.cruciblelab.trafficlogger.data.TrackerCatalog.Company, Boolean) -> Unit,
+    onSetFullyBlocked: (com.cruciblelab.trafficlogger.data.TrackerCatalog.Company, Boolean) -> Unit
+) {
+    var fullBlockCandidate by androidx.compose.runtime.remember {
+        androidx.compose.runtime.mutableStateOf<com.cruciblelab.trafficlogger.data.TrackerCatalog.Company?>(null)
+    }
+
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(6.dp)) {
+            com.cruciblelab.trafficlogger.data.TrackerCatalog.ALL.forEachIndexed { index, company ->
+                val state = companyProtectionStates[company.key]
+                    ?: com.cruciblelab.trafficlogger.data.CompanyProtectionState(trackingBlocked = false, fullyBlocked = false)
+                TrackerCompanyRow(
+                    company = company,
+                    state = state,
+                    onSetTrackingBlocked = { onSetTrackingBlocked(company, it) },
+                    onRequestFullBlock = { requestOn ->
+                        if (requestOn) fullBlockCandidate = company else onSetFullyBlocked(company, false)
+                    }
+                )
+                if (index != com.cruciblelab.trafficlogger.data.TrackerCatalog.ALL.lastIndex) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.background)
+                }
+            }
+        }
+    }
+
+    fullBlockCandidate?.let { company ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { fullBlockCandidate = null },
+            title = { Text("${company.title} tamamen engellensin mi?") },
+            text = {
+                Text(
+                    "Bu, sadece reklam/izleme uçlarını değil, ${company.title}'e ait TÜM " +
+                        "servisleri keser - ana uygulama(lar)/site(ler) de dahil olmak üzere " +
+                        "artık çalışmayabilir. İleri düzey bir seçenektir."
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    onSetFullyBlocked(company, true)
+                    fullBlockCandidate = null
+                }) { Text("Tamamen Engelle", color = AccentCritical) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { fullBlockCandidate = null }) { Text("Vazgeç") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun TrackerCompanyRow(
+    company: com.cruciblelab.trafficlogger.data.TrackerCatalog.Company,
+    state: com.cruciblelab.trafficlogger.data.CompanyProtectionState,
+    onSetTrackingBlocked: (Boolean) -> Unit,
+    onRequestFullBlock: (Boolean) -> Unit
+) {
+    var expanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val allowed = !state.trackingBlocked
+    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(company.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
+                Text(
+                    if (allowed) company.simpleDescription else "Şu an engelleniyor - bu verileri artık toplayamıyor.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (allowed) TextSecondary else AccentMint
+                )
+                if (state.fullyBlocked) {
+                    Text(
+                        "⚠ Tamamen engellenmiş durumda",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AccentCritical,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+            androidx.compose.material3.Switch(checked = allowed, onCheckedChange = { onSetTrackingBlocked(!it) })
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                if (expanded) "Teknik detayı gizle" else "Teknik detay (hangi servisler? ileri düzey seçenekler)",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextTertiary
+            )
+            Icon(
+                Icons.Filled.ChevronRight,
+                contentDescription = null,
+                tint = TextTertiary,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+        if (expanded) {
+            Column(modifier = Modifier.padding(top = 4.dp)) {
+                Text(
+                    "İzleme uçları: " + company.trackingDomains.joinToString("  ·  "),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextTertiary
+                )
+                if (company.fullBlockDomains.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.background)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "İleri düzey: ${company.title}'i tamamen engelle",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = AccentCritical
+                            )
+                            Text(
+                                "Ana uygulama/site dahil, ${company.title}'e ait her şeyi keser.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextTertiary
+                            )
+                        }
+                        androidx.compose.material3.Switch(
+                            checked = state.fullyBlocked,
+                            onCheckedChange = onRequestFullBlock
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Kürasyonlu listede (TrackerCatalog) olmayan ama bugün trafiğinde görülen domain'ler burada
+ * SESSİZCE ATLANMAK yerine gösterilir. İsim listede yoksa, o IP'nin çözülmüş ASN/organizasyon
+ * bilgisiyle ("kim barındırıyor/kime ait") gösterilir - bilgi henüz çözülmediyse tek seferlik
+ * bir istek kuyruğa alınır (bkz. MainViewModel.requestIpInfo - aralıklı/ekonomik).
+ */
+@Composable
+private fun OtherSourcesCard(
+    domains: List<ObservedOtherDomain>,
+    ipInfoMap: Map<String, com.cruciblelab.trafficlogger.data.IpInfoCache>,
+    onRequestIpInfo: (String) -> Unit,
+    onQuickBlockDomain: (String) -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(6.dp)) {
+            domains.forEachIndexed { index, item ->
+                androidx.compose.runtime.LaunchedEffect(item.destIp) { onRequestIpInfo(item.destIp) }
+                val info = ipInfoMap[item.destIp]
+                val orgMatch = info?.let {
+                    com.cruciblelab.trafficlogger.util.KnownOrgCategorizer.categorize(it.org, it.isp)
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            item.domain,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = FontFamily.Monospace,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            when {
+                                orgMatch != null -> "${orgMatch.company} · ${orgMatch.category.displayName}" +
+                                    if (orgMatch.category.sharedInfrastructure) " (barındırma, sahibi değil)" else ""
+                                info != null -> info.org ?: info.isp ?: info.countryName ?: "Kaynağı bilinmiyor"
+                                else -> "Çözülüyor…"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextTertiary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    androidx.compose.material3.TextButton(onClick = { onQuickBlockDomain(item.domain) }) {
+                        Text("Engelle", color = AccentCoral)
+                    }
+                }
+                if (index != domains.lastIndex) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.background)
+                }
             }
         }
     }
@@ -314,6 +551,7 @@ private fun CategoryBadge(category: AppCategoryClassifier.Category) {
         AppCategoryClassifier.Category.TRUSTED -> "Bilinen / güvenilir" to AccentMint
         AppCategoryClassifier.Category.UNKNOWN -> "Bilinmiyor" to AccentAmber
         AppCategoryClassifier.Category.FLAGGED -> "İşaretli" to AccentCoral
+        AppCategoryClassifier.Category.SIGNATURE_MISMATCH -> "⚠ İmza değişti!" to AccentCritical
     }
     Text(label, style = MaterialTheme.typography.labelSmall, color = color)
 }
