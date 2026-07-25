@@ -375,15 +375,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         // Engellenen bağlantılar bağlanmadan reddedildiği için bytesUp/bytesDown burada
         // hep 0'dır (bkz. TcpNat/UdpNat) - o yüzden "kaç bayt" değil "kaç kez denendi"
-        // sayıyoruz. Aynı (uygulama, hedef) çifti tekrar tekrar deneniyorsa (örn. bir arka
-        // plan servisi ısrarla bağlanmaya çalışıyorsa) bunu tek satırda toplayıp sayıyoruz.
+        // sayıyoruz.
+        //
+        // ÖNEMLİ - önceki hata: burada (uygulama, hedef) çiftine göre gruplanıyordu ve
+        // hedef = domain ?: destIp idi. İzin listesinde olmayan bir uygulama (örn. bir
+        // kısıtlama profilinde TikTok) DNS/SNI bilinmeden ilk pakette reddedildiği için
+        // domain çoğu zaman null kalıyor - bu da CDN üzerinden çalışan, çok sayıda farklı
+        // edge IP'sine bağlanan bir uygulamanın (TikTok gibi) denemelerinin onlarca AYRI,
+        // düşük sayılı gruba bölünmesine yol açıyordu. Toplamda en çok denenen uygulama bu
+        // yüzden ilk 5'e hiç girmiyordu - tek bir sabit domain'e yoğunlaşan başka bir
+        // uygulama/tracker, kendi tek grubunda daha yüksek sayıyla üste çıkıyordu.
+        //
+        // Düzeltme: önce UYGULAMA bazında grupla (tüm hedefleri o grup içinde topla), sonra
+        // o uygulamanın kaç FARKLI hedefe denediğini ayrıca göster.
         val blockedToday = todayEntries.filter { it.blocked }
         val topBlocked = blockedToday
-            .groupBy { (it.appPackageName to it.appLabel) to (it.domain ?: it.destIp) }
+            .groupBy { it.appPackageName to it.appLabel }
             .map { (key, rows) ->
+                val distinctTargets = rows.map { it.domain ?: it.destIp }.distinct()
                 BlockedDestinationSummary(
-                    target = key.second,
-                    appLabel = key.first.second,
+                    target = if (distinctTargets.size == 1) {
+                        distinctTargets.first()
+                    } else {
+                        "${distinctTargets.size} farklı hedef"
+                    },
+                    appLabel = key.second,
                     attemptCount = rows.size,
                     lastAttemptAt = rows.maxOf { it.timestamp }
                 )
