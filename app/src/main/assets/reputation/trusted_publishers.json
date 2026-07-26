@@ -1,0 +1,650 @@
+[
+  {
+    "package": "com.android.",
+    "matchType": "PREFIX",
+    "verdict": "TRUSTED",
+    "label": "Android Sistemi (AOSP)"
+  },
+  {
+    "package": "com.google.android.",
+    "matchType": "PREFIX",
+    "verdict": "TRUSTED",
+    "label": "Google"
+  },
+  {
+    "package": "com.google.gms.",
+    "matchType": "PREFIX",
+    "verdict": "TRUSTED",
+    "label": "Google Play Hizmetleri"
+  },
+  {
+    "package": "com.samsung.android.",
+    "matchType": "PREFIX",
+    "verdict": "TRUSTED",
+    "label": "Samsung"
+  },
+  {
+    "package": "com.sec.android.",
+    "matchType": "PREFIX",
+    "verdict": "TRUSTED",
+    "label": "Samsung"
+  },
+  {
+    "package": "com.miui.",
+    "matchType": "PREFIX",
+    "verdict": "TRUSTED",
+    "label": "Xiaomi (MIUI)"
+  },
+  {
+    "package": "com.xiaomi.",
+    "matchType": "PREFIX",
+    "verdict": "TRUSTED",
+    "label": "Xiaomi"
+  },
+  {
+    "package": "com.huawei.",
+    "matchType": "PREFIX",
+    "verdict": "TRUSTED",
+    "label": "Huawei"
+  },
+  {
+    "package": "com.oppo.",
+    "matchType": "PREFIX",
+    "verdict": "TRUSTED",
+    "label": "OPPO"
+  },
+  {
+    "package": "com.coloros.",
+    "matchType": "PREFIX",
+    "verdict": "TRUSTED",
+    "label": "OPPO (ColorOS)"
+  },
+  {
+    "package": "com.oneplus.",
+    "matchType": "PREFIX",
+    "verdict": "TRUSTED",
+    "label": "OnePlus"
+  },
+  {
+    "package": "com.vivo.",
+    "matchType": "PREFIX",
+    "verdict": "TRUSTED",
+    "label": "vivo"
+  },
+  {
+    "package": "com.whatsapp",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "WhatsApp"
+  },
+  {
+    "package": "org.telegram.messenger",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Telegram"
+  },
+  {
+    "package": "com.instagram.android",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Instagram"
+  },
+  {
+    "package": "com.facebook.katana",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Facebook"
+  },
+  {
+    "package": "com.spotify.music",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Spotify"
+  },
+  {
+    "package": "com.netflix.mediaclient",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Netflix"
+  },
+  {
+    "package": "com.microsoft.",
+    "matchType": "PREFIX",
+    "verdict": "TRUSTED",
+    "label": "Microsoft"
+  },
+  {
+    "package": "com.google.",
+    "matchType": "PREFIX",
+    "verdict": "TRUSTED",
+    "label": "Google"
+  },
+  {
+    "package": "com.android.chrome",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Chrome"
+  },
+  {
+    "package": "com.zhiliaoapp.musically",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "TikTok"
+  },
+  {
+    "package": "com.ss.android.ugc.trill",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "TikTok"
+  },
+  {
+    "package": "com.twitter.android",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "X / Twitter"
+  },
+  {
+    "package": "com.discord",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Discord"
+  },
+  {
+    "package": "com.snapchat.android",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Snapchat"
+  },
+  {
+    "package": "com.reddit.frontpage",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Reddit"
+  },
+  {
+    "package": "com.linkedin.android",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "LinkedIn"
+  },
+  {
+    "package": "com.pinterest",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Pinterest"
+  },
+  {
+    "package": "org.thoughtcrime.securesms",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Signal"
+  },
+  {
+    "package": "com.viber.voip",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Viber"
+  },
+  {
+    "package": "jp.naver.line.android",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "LINE"
+  },
+  {
+    "package": "com.tencent.mm",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "WeChat"
+  },
+  {
+    "package": "com.ubercab",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Uber"
+  },
+  {
+    "package": "com.amazon.mShop.android.shopping",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Amazon"
+  },
+  {
+    "package": "tv.twitch.android.app",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Twitch"
+  },
+  {
+    "package": "com.zhiliaoapp.musically.go",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "TikTok Lite"
+  },
+  {
+    "package": "com.adobe.",
+    "matchType": "PREFIX",
+    "verdict": "TRUSTED",
+    "label": "Adobe"
+  },
+  {
+    "package": "com.apple.",
+    "matchType": "PREFIX",
+    "verdict": "TRUSTED",
+    "label": "Apple"
+  },
+  {
+    "package": "com.paypal.android",
+    "matchType": "PREFIX",
+    "verdict": "TRUSTED",
+    "label": "PayPal"
+  },
+  {
+    "package": "com.dropbox.android",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Dropbox"
+  },
+  {
+    "package": "com.avast.android.mobilesecurity",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Avast Mobile Security"
+  },
+  {
+    "package": "com.antivirus",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "AVG AntiVirus"
+  },
+  {
+    "package": "com.kms.free",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Kaspersky"
+  },
+  {
+    "package": "com.bitdefender.security",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Bitdefender Mobile Security"
+  },
+  {
+    "package": "com.symantec.mobilesecurity",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Norton Mobile Security"
+  },
+  {
+    "package": "com.eset.ems2.gp",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "ESET Mobile Security"
+  },
+  {
+    "package": "com.wsandroid.suite",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "McAfee Security"
+  },
+  {
+    "package": "org.malwarebytes.antimalware",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Malwarebytes"
+  },
+  {
+    "package": "com.avira.android",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Avira Antivirus Security"
+  },
+  {
+    "package": "org.mozilla.firefox",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Firefox"
+  },
+  {
+    "package": "org.mozilla.focus",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Firefox Focus"
+  },
+  {
+    "package": "com.microsoft.emmx",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Microsoft Edge"
+  },
+  {
+    "package": "com.opera.browser",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Opera"
+  },
+  {
+    "package": "com.opera.mini.native",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Opera Mini"
+  },
+  {
+    "package": "com.brave.browser",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Brave"
+  },
+  {
+    "package": "com.duckduckgo.mobile.android",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "DuckDuckGo"
+  },
+  {
+    "package": "com.UCMobile.intl",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "UC Browser"
+  },
+  {
+    "package": "com.sec.android.app.sbrowser",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Samsung Internet"
+  },
+  {
+    "package": "com.vivaldi.browser",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Vivaldi"
+  },
+  {
+    "package": "com.microsoft.office.outlook",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Outlook"
+  },
+  {
+    "package": "com.microsoft.teams",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Microsoft Teams"
+  },
+  {
+    "package": "com.microsoft.office.word",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Microsoft Word"
+  },
+  {
+    "package": "com.microsoft.office.excel",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Microsoft Excel"
+  },
+  {
+    "package": "com.microsoft.skydrive",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "OneDrive"
+  },
+  {
+    "package": "us.zoom.videomeetings",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Zoom"
+  },
+  {
+    "package": "com.Slack",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Slack"
+  },
+  {
+    "package": "com.evernote",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Evernote"
+  },
+  {
+    "package": "com.trello",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Trello"
+  },
+  {
+    "package": "notion.id",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Notion"
+  },
+  {
+    "package": "com.asana.app",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Asana"
+  },
+  {
+    "package": "com.yahoo.mobile.client.android.mail",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Yahoo Mail"
+  },
+  {
+    "package": "ch.protonmail.android",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Proton Mail"
+  },
+  {
+    "package": "com.google.android.apps.docs",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Google Drive"
+  },
+  {
+    "package": "com.mega.android",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "MEGA"
+  },
+  {
+    "package": "com.pcloud.pcloud",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "pCloud"
+  },
+  {
+    "package": "com.soundcloud.android",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "SoundCloud"
+  },
+  {
+    "package": "deezer.android.app",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Deezer"
+  },
+  {
+    "package": "com.disney.disneyplus",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Disney+"
+  },
+  {
+    "package": "com.amazon.avod.thirdpartyclient",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Amazon Prime Video"
+  },
+  {
+    "package": "com.waze",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Waze"
+  },
+  {
+    "package": "com.google.android.apps.maps",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Google Haritalar"
+  },
+  {
+    "package": "ru.yandex.yandexnavi",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Yandex Navigasyon"
+  },
+  {
+    "package": "ru.yandex.searchapp",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Yandex"
+  },
+  {
+    "package": "com.ziraat.ziraatmobil",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Ziraat Bankası Mobil"
+  },
+  {
+    "package": "com.tskb.mobile",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "TSKB Mobil"
+  },
+  {
+    "package": "com.pozitron.iscep",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "İşCep (İş Bankası)"
+  },
+  {
+    "package": "com.garanti.cepsubesi",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Garanti BBVA Cep Şubesi"
+  },
+  {
+    "package": "com.akbank.android.apps.akbank_direkt",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Akbank Direkt"
+  },
+  {
+    "package": "com.yapikredi.mobil",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Yapı Kredi Mobil"
+  },
+  {
+    "package": "com.vakifbank.mobile",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "VakıfBank Mobil"
+  },
+  {
+    "package": "com.halkbank.mobile",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Halkbank Mobil"
+  },
+  {
+    "package": "com.denizbank.mobildeniz",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "DenizBank Mobil"
+  },
+  {
+    "package": "com.grabtaxi.passenger",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Grab"
+  },
+  {
+    "package": "com.trendyol.trendyolmilla",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Trendyol"
+  },
+  {
+    "package": "com.pozitron.hepsiburada",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Hepsiburada"
+  },
+  {
+    "package": "com.n11.mobile",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "n11"
+  },
+  {
+    "package": "com.getir",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Getir"
+  },
+  {
+    "package": "com.yemeksepeti",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Yemeksepeti"
+  },
+  {
+    "package": "com.ebay.mobile",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "eBay"
+  },
+  {
+    "package": "com.alibaba.aliexpresshd",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "AliExpress"
+  },
+  {
+    "package": "com.valvesoftware.android.steam.community",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Steam"
+  },
+  {
+    "package": "com.epicgames.portal",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Epic Games"
+  },
+  {
+    "package": "com.android.vending",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Google Play Store"
+  },
+  {
+    "package": "com.google.android.gms",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Google Play Hizmetleri"
+  },
+  {
+    "package": "com.google.android.youtube",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "YouTube"
+  },
+  {
+    "package": "com.google.android.apps.photos",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Google Fotoğraflar"
+  },
+  {
+    "package": "com.google.android.googlequicksearchbox",
+    "matchType": "EXACT",
+    "verdict": "TRUSTED",
+    "label": "Google Uygulaması"
+  }
+]

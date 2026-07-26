@@ -1,0 +1,15 @@
+*.iml
+.gradle/
+/local.properties
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+*.apk
+*.aab
+
+# İmzalama sırları - ASLA commitleme
+app/keystore.properties
+*.keystore
+*.jks
