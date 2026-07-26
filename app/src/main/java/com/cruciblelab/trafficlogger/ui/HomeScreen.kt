@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -71,6 +72,8 @@ import com.cruciblelab.trafficlogger.data.IpInfoCache
 import com.cruciblelab.trafficlogger.data.NetworkProfile
 import com.cruciblelab.trafficlogger.data.TrackerCatalog
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
@@ -105,7 +108,9 @@ fun HomeScreen(
     onOpenReputation: () -> Unit,
     onOpenProfiles: () -> Unit,
     onOpenSettings: () -> Unit,
-    activeProfile: NetworkProfile? = null
+    activeProfile: NetworkProfile? = null,
+    showXiaomiSuggestion: Boolean = false,
+    onApplyXiaomiSuggestion: () -> Unit = {}
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -129,6 +134,9 @@ fun HomeScreen(
             item { VpnStatusCard(vpnRunning = vpnRunning, onToggleVpn = onToggleVpn) }
             if (activeProfile != null) {
                 item { ActiveProfileBanner(profileName = activeProfile.name, onOpenProfiles = onOpenProfiles) }
+            }
+            if (showXiaomiSuggestion) {
+                item { XiaomiTrackerSuggestionCard(onApply = onApplyXiaomiSuggestion) }
             }
             item { InsightCard(summary = summary, onOpenList = onOpenList, onOpenReputation = onOpenReputation) }
             item {
@@ -237,6 +245,45 @@ private fun ActiveProfileBanner(profileName: String, onOpenProfiles: () -> Unit)
                 Text(profileName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             }
             Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = TextTertiary)
+        }
+    }
+}
+
+/**
+ * Cihaz Xiaomi/Redmi/POCO ise (bkz. MainViewModel.isXiaomiDevice) ve Xiaomi izleme uçları
+ * henüz kapatılmadıysa Ana Sayfa'nın en üstünde görünen, tek dokunuşla harekete geçilebilen
+ * öneri kartı - kullanıcı "Veri toplama kontrolleri" bölümüne kadar inip Xiaomi'yi manuel
+ * bulmak zorunda kalmasın diye.
+ */
+@Composable
+private fun XiaomiTrackerSuggestionCard(onApply: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = CardShapeMedium,
+        colors = CardDefaults.cardColors(containerColor = AccentCoral.copy(alpha = 0.12f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.WarningAmber, contentDescription = null, tint = AccentCoral, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Bu bir Xiaomi/Redmi/POCO cihazı", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                    Text(
+                        "Sistemle gelen reklam/analitik trafiğini kapat",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Button(
+                onClick = onApply,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = AccentCoral)
+            ) {
+                Text("Tek dokunuşla kapat")
+            }
         }
     }
 }

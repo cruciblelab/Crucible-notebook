@@ -53,6 +53,7 @@ fun TrafficNavGraph(viewModel: MainViewModel, onToggleVpn: () -> Unit) {
     val reputationSources by viewModel.reputationSources.collectAsState()
     val availableProfiles by viewModel.availableProfiles.collectAsState()
     val activeProfile by viewModel.activeProfile.collectAsState()
+    val showXiaomiSuggestion by viewModel.showXiaomiTrackerSuggestion.collectAsState()
     val installedApps by viewModel.installedApps.collectAsState()
 
     NavHost(
@@ -88,7 +89,9 @@ fun TrafficNavGraph(viewModel: MainViewModel, onToggleVpn: () -> Unit) {
                 onOpenReputation = { navController.navigate(Routes.REPUTATION) },
                 onOpenProfiles = { navController.navigate(Routes.PROFILES) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                activeProfile = activeProfile
+                activeProfile = activeProfile,
+                showXiaomiSuggestion = showXiaomiSuggestion,
+                onApplyXiaomiSuggestion = viewModel::applyXiaomiTrackerSuggestion
             )
         }
         composable(

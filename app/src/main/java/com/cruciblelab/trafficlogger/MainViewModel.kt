@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -288,6 +289,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val companyProtectionStates: StateFlow<Map<String, com.cruciblelab.trafficlogger.data.CompanyProtectionState>> =
         app.trackerBlockRepository.observeProtectionStates()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    // Cihaz, Xiaomi/Redmi/POCO (hepsi aynı MIUI/HyperOS altyapısını, dolayısıyla aynı
+    // telemetri uçlarını kullanıyor) ise Ana Sayfa'da "tek tıkla kapat" önerisi gösterilir.
+    // NOT: telemetri domain'leri modele göre DEĞİL, MIUI/HyperOS sürümüne göre değişir - bu
+    // yüzden burada spesifik bir model listesi değil, üretici (manufacturer/brand) kontrolü
+    // yapılıyor; Redmi Note 8 ile Poco F5 aynı Xiaomi telemetri altyapısını paylaşır.
+    val isXiaomiDevice: Boolean = run {
+        val brand = android.os.Build.BRAND?.lowercase() ?: ""
+        val manufacturer = android.os.Build.MANUFACTURER?.lowercase() ?: ""
+        listOf(brand, manufacturer).any { it == "xiaomi" || it == "redmi" || it == "poco" }
+    }
+
+    /** true ise Ana Sayfa'da "Bu bir Xiaomi cihazı - izlemeyi kapat" önerisi gösterilmeli. */
+    val showXiaomiTrackerSuggestion: StateFlow<Boolean> = companyProtectionStates
+        .map { states -> isXiaomiDevice && states["xiaomi"]?.trackingBlocked != true }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), isXiaomiDevice)
+
+    /** Ana Sayfa'daki öneri kartındaki tek buton: Xiaomi izleme uçlarını doğrudan kapatır. */
+    fun applyXiaomiTrackerSuggestion() {
+        val xiaomi = com.cruciblelab.trafficlogger.data.TrackerCatalog.ALL.firstOrNull { it.key == "xiaomi" } ?: return
+        setTrackingBlocked(xiaomi, true)
+    }
 
     fun setTrackingBlocked(company: com.cruciblelab.trafficlogger.data.TrackerCatalog.Company, blocked: Boolean) {
         viewModelScope.launch { app.trackerBlockRepository.setTrackingBlocked(company, blocked) }
