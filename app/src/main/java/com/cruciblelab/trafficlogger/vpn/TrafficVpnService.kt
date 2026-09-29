@@ -212,25 +212,33 @@ class TrafficVpnService : VpnService() {
         serviceScope.launch { dataLimitLoop() }
     }
 
+    /**
+     * Tam bir söküm (teardown). Her adım kendi try/catch'i içinde çalışır: normal durumda
+     * hiçbir şey fırlatmaz, ama servis tutarsız bir ara durumdayken çağrılırsa (örn. arayüz
+     * daha önce başka bir yoldan kapanmış, ya da bir worker zaten shutdown olmuş) TEK bir
+     * adımın hata vermesi diğerlerinin - en kritik olanı [vpnInterface]'in kapatılması dahil -
+     * atlanmasına yol açmamalı. Bu olmasaydı, örn. NAT temizliği sırasında beklenmedik bir
+     * istisna TUN arayüzünün açık kalmasına ve kullanıcının "VPN görünüyor ama kapanmıyor"
+     * şikayet ettiği duruma yol açabilirdi - bkz. Ayarlar > Ağı Sıfırla.
+     */
     private fun stopVpn() {
         running = false
         _isRunning.value = false
-        readerThread?.interrupt()
+        runCatching { readerThread?.interrupt() }
         readerThread = null
-        packetWorkers.forEach { it.shutdownNow() }
+        runCatching { packetWorkers.forEach { it.shutdownNow() } }
         packetWorkers = emptyList()
         connectionWorkerIndex.clear()
         pendingPacketTasks.set(0)
         activeWorkerCount.set(MIN_PACKET_WORKERS)
-        if (::udpNat.isInitialized) udpNat.closeAll()
-        if (::tcpNat.isInitialized) tcpNat.closeAll()
-        try {
-            vpnInterface?.close()
-        } catch (e: Exception) {
-            // interface already gone, nothing to clean up
-        }
+        if (::udpNat.isInitialized) runCatching { udpNat.closeAll() }
+        if (::tcpNat.isInitialized) runCatching { tcpNat.closeAll() }
+        runCatching { dnsCache.clear() }
+        notifiedForDay = -1L
+        notifiedApps.clear()
+        runCatching { vpnInterface?.close() }
         vpnInterface = null
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
         stopSelf()
     }
 

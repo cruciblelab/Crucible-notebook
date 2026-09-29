@@ -13,6 +13,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -59,6 +61,8 @@ fun SettingsScreen(
     blockKnownDoh: Boolean,
     onBlockKnownDohChange: (Boolean) -> Unit,
     onClearHistory: () -> Unit,
+    onForceResetNetwork: () -> Unit,
+    onOpenSystemVpnSettings: () -> Unit,
     onBack: () -> Unit
 ) {
     Scaffold(
@@ -161,6 +165,40 @@ fun SettingsScreen(
                     onClick = onClearHistory
                 ) {
                     Text("Tüm kayıtları temizle")
+                }
+
+                Text(
+                    stringResource(R.string.network_reset_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(top = 32.dp, bottom = 4.dp)
+                )
+                Text(
+                    stringResource(R.string.network_reset_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(bottom = 10.dp)
+                )
+                Button(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = CardShapeSmall,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    onClick = onForceResetNetwork
+                ) {
+                    Text(stringResource(R.string.network_reset_action))
+                }
+
+                Text(
+                    stringResource(R.string.network_reset_open_system_settings_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(top = 12.dp, bottom = 10.dp)
+                )
+                OutlinedButton(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = CardShapeSmall,
+                    onClick = onOpenSystemVpnSettings
+                ) {
+                    Text(stringResource(R.string.network_reset_open_system_settings))
                 }
             }
         }

@@ -1,10 +1,13 @@
 package com.cruciblelab.trafficlogger
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -34,7 +37,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             NetworkTrafficLoggerTheme {
-                TrafficNavGraph(viewModel = viewModel, onToggleVpn = ::onToggleVpn)
+                TrafficNavGraph(
+                    viewModel = viewModel,
+                    onToggleVpn = ::onToggleVpn,
+                    onForceResetNetwork = ::forceResetNetwork,
+                    onOpenSystemVpnSettings = ::openSystemVpnSettings
+                )
             }
         }
     }
@@ -73,5 +81,33 @@ class MainActivity : ComponentActivity() {
 
     private fun stopVpnService() {
         startService(Intent(this, TrafficVpnService::class.java).setAction(TrafficVpnService.ACTION_STOP))
+    }
+
+    /**
+     * "Ayarlar > Ağı Sıfırla" için son çare kurtarma yolu. Normal [stopVpnService] servise
+     * bir ACTION_STOP intent'i gönderir - ama servis process'i tıkanmış/tutarsız bir
+     * durumdaysa (örn. bir istisna packet loop'unu öldürmüş ama servis nesnesi hâlâ ayakta)
+     * o intent hiç işlenmeyebilir. Burada iki şey art arda deneniyor:
+     *  1) Normal ACTION_STOP intent'i (servis düzgün çalışıyorsa temiz bir kapanış yapar).
+     *  2) Doğrudan [stopService] - Android'in kendisi servisi zorla durdurur/onDestroy'u
+     *     tetikler, servisin onStartCommand'ının hiç çalışmasına gerek kalmadan.
+     * İkisi birden VPN arayüzünü kapatıp OS'un "aktif VPN" göstergesini temizlemeli. Eğer
+     * bundan sonra da sistem hâlâ bir VPN'in bağlı olduğunu gösteriyorsa (nadir - genelde
+     * OS'un kendi VPN durumu önbelleğinin takılı kalması), kullanıcı ayrıca sistem VPN
+     * ayarlarını açıp oradan manuel olarak bağlantıyı kesebilir - bkz. [openSystemVpnSettings].
+     */
+    private fun forceResetNetwork() {
+        stopVpnService()
+        val intent = Intent(this, TrafficVpnService::class.java)
+        stopService(intent)
+        Toast.makeText(this, getString(R.string.network_reset_done), Toast.LENGTH_SHORT).show()
+    }
+
+    private fun openSystemVpnSettings() {
+        try {
+            startActivity(Intent(Settings.ACTION_VPN_SETTINGS))
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(this, getString(R.string.network_reset_settings_unavailable), Toast.LENGTH_SHORT).show()
+        }
     }
 }

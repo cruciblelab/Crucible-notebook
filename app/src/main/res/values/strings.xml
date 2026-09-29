@@ -11,4 +11,11 @@
     <string name="data_limit_notification_title">Günlük veri limiti aşıldı</string>
     <string name="data_accuracy_disclaimer">Bu uygulamadaki IP/ASN/organizasyon bilgileri ve itibar (reputation) verileri, dış servislerden ve topluluk kaynaklı listelerden gelir; doğruluğu garanti edilmez ve hatalı, eksik veya güncel olmayan sonuçlar içerebilir. Bu uygulama bir antivirüs veya güvenlik ürünü değildir; kötü amaçlı yazılımları tespit etme veya engelleme garantisi vermez. Burada gösterilen bilgilere dayanarak kritik güvenlik kararları almadan önce başka kaynaklarla doğrulama yapın.</string>
     <string name="reputation_disclaimer">Hazır ve içe aktarılan veritabanları üçüncü taraf/topluluk kaynaklıdır; Cruciblelab bu listelerin doğruluğunu, güncelliğini veya eksiksizliğini garanti etmez. "TRUSTED" (güvenilir) işareti bir uygulamanın zararsız olduğunu kanıtlamaz; "FLAGGED" (işaretli) işareti de kesin olarak zararlı olduğu anlamına gelmez. Otomatik engelleme özelliğini dikkatli kullanın, yanlış pozitif/negatif olabilir.</string>
+    <string name="network_reset_title">Ağı Sıfırla</string>
+    <string name="network_reset_description">VPN göstergesi takılı kaldıysa, "Durdur"a bastığınızda hiçbir şey olmuyorsa ya da bağlantıyı kestikten sonra bazı uygulamalar/oyunlar hata vermeye devam ediyorsa kullanın. Bu, VPN\'i zorla kapatır ve dahili önbellekleri (NAT tablosu, DNS eşlemeleri) temizler. Zaten bağlı olan bazı uygulamalar yine de yeniden bağlanmaları gerekebilir - bu, o uygulamaların kendi bağlantı yönetiminden kaynaklanır, bu ekrandan doğrudan düzeltilemez.</string>
+    <string name="network_reset_action">Ağı Sıfırla (VPN\'i Zorla Durdur)</string>
+    <string name="network_reset_done">Ağ sıfırlandı</string>
+    <string name="network_reset_open_system_settings">Sistem VPN Ayarlarını Aç</string>
+    <string name="network_reset_open_system_settings_description">Ağı Sıfırla\'dan sonra bile cihazınız hâlâ bir VPN\'e bağlı görünüyorsa, Android\'in kendi VPN ayarlarından bağlantıyı manuel olarak kesebilirsiniz.</string>
+    <string name="network_reset_settings_unavailable">Sistem VPN ayarları bu cihazda açılamadı</string>
 </resources>

@@ -24,4 +24,7 @@ class DnsCache(private val maxEntries: Int = 2000) {
     }
 
     fun lookup(address: Inet4Address): String? = map[address.hostAddress]
+
+    /** Sıfırlanırken (bkz. TrafficVpnService force-reset) eski, artık geçersiz eşlemelerin kalmaması için. */
+    fun clear() = map.clear()
 }

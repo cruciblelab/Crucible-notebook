@@ -29,7 +29,12 @@ private object Routes {
 }
 
 @Composable
-fun TrafficNavGraph(viewModel: MainViewModel, onToggleVpn: () -> Unit) {
+fun TrafficNavGraph(
+    viewModel: MainViewModel,
+    onToggleVpn: () -> Unit,
+    onForceResetNetwork: () -> Unit,
+    onOpenSystemVpnSettings: () -> Unit
+) {
     // Onboarding tamamlanana kadar DataStore'dan okuma bitmediği için null olabilir; bu sırada
     // NavHost'u hiç oluşturmuyoruz ki başlangıç rotası yanlış (örn. her zaman HOME) sabitlenmesin.
     val onboardingCompleted by viewModel.onboardingCompleted.collectAsState()
@@ -182,6 +187,8 @@ fun TrafficNavGraph(viewModel: MainViewModel, onToggleVpn: () -> Unit) {
                 blockKnownDoh = blockKnownDoh,
                 onBlockKnownDohChange = viewModel::setBlockKnownDoh,
                 onClearHistory = viewModel::clearHistory,
+                onForceResetNetwork = onForceResetNetwork,
+                onOpenSystemVpnSettings = onOpenSystemVpnSettings,
                 onBack = { navController.popBackStack() }
             )
         }
