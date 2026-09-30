@@ -1,5 +1,6 @@
 package com.cruciblelab.trafficlogger.vpn
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Intent
 import android.net.VpnService
@@ -34,6 +35,9 @@ class TrafficTileService : TileService() {
         }
     }
 
+    // Intent'li sürüm yalnızca API 34 öncesinde çağrılıyor (orada tek seçenek o); API 34+ PendingIntent
+    // sürümünü kullanıyor. Lint sürüm kontrolünü hesaba katmadığı için burada susturuluyor.
+    @SuppressLint("StartActivityAndCollapseDeprecated")
     private fun openAppAndStart() {
         val intent = Intent(this, MainActivity::class.java)
             .setAction(MainActivity.ACTION_START_VPN)
