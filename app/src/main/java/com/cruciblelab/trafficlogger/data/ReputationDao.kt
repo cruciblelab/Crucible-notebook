@@ -55,4 +55,20 @@ interface ReputationDao {
         """
     )
     fun observeActiveVerdicts(): Flow<List<PackageVerdict>>
+
+    // --- Yedekleme (bkz. BackupRepository) ---
+    @Query("SELECT * FROM reputation_sources")
+    suspend fun getAllSources(): List<ReputationSource>
+
+    @Query("SELECT * FROM app_reputation_entries")
+    suspend fun getAllEntries(): List<AppReputationEntry>
+
+    @Query("DELETE FROM reputation_sources")
+    suspend fun deleteAllSources()
+
+    @Query("DELETE FROM app_reputation_entries")
+    suspend fun deleteAllEntries()
+
+    @Insert
+    suspend fun insertSources(sources: List<ReputationSource>)
 }

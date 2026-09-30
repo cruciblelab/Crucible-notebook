@@ -9,6 +9,8 @@ import android.content.pm.PackageManager
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
+import android.os.PowerManager
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import com.cruciblelab.trafficlogger.MainActivity
 import com.cruciblelab.trafficlogger.R
@@ -19,6 +21,7 @@ import com.cruciblelab.trafficlogger.util.formatBytes
 import com.cruciblelab.trafficlogger.util.startOfDayMillis
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -34,6 +37,9 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
+
+/** Tüm bağlantıların anlık toplam hızı (bkz. [TrafficVpnService.liveSpeed]). */
+data class LiveSpeed(val upBytesPerSec: Long = 0, val downBytesPerSec: Long = 0)
 
 /**
  * Full-traffic local VPN: every packet the device sends is routed into the TUN (both
@@ -96,9 +102,16 @@ class TrafficVpnService : VpnService() {
 
         private val _isRunning = MutableStateFlow(false)
         val isRunning = _isRunning.asStateFlow()
+
+        /** Canlı hız bu aralıkla ölçülür; bildirim yalnızca metin değişince ve ekran açıkken yenilenir. */
+        private const val THROUGHPUT_INTERVAL_MS = 2_000L
+
+        private val _liveSpeed = MutableStateFlow(LiveSpeed())
+        val liveSpeed = _liveSpeed.asStateFlow()
     }
 
     private var vpnInterface: ParcelFileDescriptor? = null
+    private var throughputJob: Job? = null
     private var readerThread: Thread? = null
     @Volatile private var running = false
     private var packetWorkers: List<ExecutorService> = emptyList()
@@ -210,6 +223,7 @@ class TrafficVpnService : VpnService() {
         serviceScope.launch { profileSyncLoop() }
         serviceScope.launch { dohBlockingSyncLoop() }
         serviceScope.launch { dataLimitLoop() }
+        throughputJob = serviceScope.launch { throughputLoop() }
     }
 
     /**
@@ -224,6 +238,9 @@ class TrafficVpnService : VpnService() {
     private fun stopVpn() {
         running = false
         _isRunning.value = false
+        throughputJob?.cancel()
+        throughputJob = null
+        _liveSpeed.value = LiveSpeed()
         runCatching { readerThread?.interrupt() }
         readerThread = null
         runCatching { packetWorkers.forEach { it.shutdownNow() } }
@@ -239,6 +256,8 @@ class TrafficVpnService : VpnService() {
         runCatching { vpnInterface?.close() }
         vpnInterface = null
         runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
+        // Hız döngüsünün son anda yeniden yayınlamış olabileceği bildirimi de kaldır.
+        runCatching { getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID) }
         stopSelf()
     }
 
@@ -479,7 +498,39 @@ class TrafficVpnService : VpnService() {
         connectionWorkerIndex.entries.removeIf { it.value.lastSeenMs < cutoff }
     }
 
-    private fun buildNotification(): Notification {
+    private suspend fun throughputLoop() {
+        val powerManager = getSystemService(PowerManager::class.java)
+        val notificationManager = getSystemService(NotificationManager::class.java)
+        var lastUp = relayContext.totalBytesUp.get()
+        var lastDown = relayContext.totalBytesDown.get()
+        var lastAt = SystemClock.elapsedRealtime()
+        var lastText: String? = null
+        while (running) {
+            delay(THROUGHPUT_INTERVAL_MS)
+            val now = SystemClock.elapsedRealtime()
+            val up = relayContext.totalBytesUp.get()
+            val down = relayContext.totalBytesDown.get()
+            val elapsedMs = (now - lastAt).coerceAtLeast(1)
+            val speed = LiveSpeed(
+                upBytesPerSec = (up - lastUp) * 1000 / elapsedMs,
+                downBytesPerSec = (down - lastDown) * 1000 / elapsedMs
+            )
+            lastUp = up
+            lastDown = down
+            lastAt = now
+            _liveSpeed.value = speed
+
+            // Ekran kapalıyken bildirimi yenilemek pil harcar ama kimse görmez.
+            if (!powerManager.isInteractive) continue
+            val text = "↑ ${formatBytes(speed.upBytesPerSec)}/s   ↓ ${formatBytes(speed.downBytesPerSec)}/s"
+            if (text != lastText && running) {
+                lastText = text
+                notificationManager.notify(NOTIFICATION_ID, buildNotification(text))
+            }
+        }
+    }
+
+    private fun buildNotification(speedText: String? = null): Notification {
         val notificationManager = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -507,9 +558,10 @@ class TrafficVpnService : VpnService() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
             .setContentTitle(getString(R.string.vpn_notification_title))
-            .setContentText(getString(R.string.vpn_notification_text))
+            .setContentText(speedText ?: getString(R.string.vpn_notification_text))
             .setContentIntent(contentIntent)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
             .addAction(0, getString(R.string.action_stop), stopIntent)
             .build()
     }

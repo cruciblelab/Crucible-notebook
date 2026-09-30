@@ -21,4 +21,14 @@ interface ProfileDao {
 
     @Delete
     suspend fun delete(profile: ProfileEntity)
+
+    // --- Yedekleme (bkz. BackupRepository) ---
+    @Query("SELECT * FROM network_profiles")
+    suspend fun getAll(): List<ProfileEntity>
+
+    @Query("DELETE FROM network_profiles")
+    suspend fun deleteAll()
+
+    @Insert
+    suspend fun insertAll(profiles: List<ProfileEntity>)
 }

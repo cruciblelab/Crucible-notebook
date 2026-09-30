@@ -80,8 +80,8 @@ fun UpdateDialog(
             text = {
                 Text(
                     "Sistem yükleyicisi açıldı. Açılmadıysa ya da iptal ettiyseniz tekrar deneyin. " +
-                        "Kurulum sırasında trafik izleme durur; güncellemeden sonra uygulamayı açıp " +
-                        "izlemeyi yeniden başlatın."
+                        "Kurulum sırasında trafik izleme durur. Ayarlar'da \"Otomatik başlat\" açıksa " +
+                        "güncellemeden sonra kendiliğinden yeniden başlar."
                 )
             },
             confirmButton = { TextButton(onClick = onInstall) { Text("Yükle") } },

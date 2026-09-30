@@ -27,6 +27,10 @@ class RelayContext(
 ) {
     private val outputLock = Any()
 
+    /** Bütün bağlantıların toplam giden/gelen byte'ı - canlı hız göstergesi bunların farkından hesaplanır. */
+    val totalBytesUp = java.util.concurrent.atomic.AtomicLong()
+    val totalBytesDown = java.util.concurrent.atomic.AtomicLong()
+
     fun isBlocked(appPackageName: String, domain: String?, destIp: String): Boolean =
         ruleMatcher.isBlocked(appPackageName, domain, destIp)
 

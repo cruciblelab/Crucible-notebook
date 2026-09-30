@@ -10,6 +10,8 @@
     <!-- Uygulama içi güncelleme: GitHub Releases'tan indirilen yeni sürümü sistem yükleyicisine
          vermek için. Android yine de her kurulumda kullanıcıya onay ekranı gösterir. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Ayarlarda açılırsa: telefon açılınca / uygulama güncellenince izlemeyi yeniden başlat. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!--
       Needed so PackageManager.getApplicationInfo()/getApplicationLabel() can resolve a
       human-readable name for ANY installed app's UID, not just ones visible to us under
@@ -55,6 +57,27 @@
                 <action android:name="android.net.VpnService" />
             </intent-filter>
         </service>
+
+        <service
+            android:name=".vpn.TrafficTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_traffic"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!-- Yalnızca sistemin gönderebildiği (korumalı) iki yayını dinler; ayrıca action kontrol edilir. -->
+        <receiver
+            android:name=".vpn.AutoStartReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"

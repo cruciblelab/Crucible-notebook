@@ -19,6 +19,11 @@ import com.cruciblelab.trafficlogger.vpn.TrafficVpnService
 
 class MainActivity : ComponentActivity() {
 
+    companion object {
+        /** Hızlı Ayarlar kutucuğu, VPN izni gerektiğinde uygulamayı bu action ile açar. */
+        const val ACTION_START_VPN = "com.cruciblelab.trafficlogger.action.START_VPN"
+    }
+
     private val viewModel: MainViewModel by viewModels()
 
     private val vpnPrepareLauncher = registerForActivityResult(
@@ -41,10 +46,46 @@ class MainActivity : ComponentActivity() {
                     viewModel = viewModel,
                     onToggleVpn = ::onToggleVpn,
                     onForceResetNetwork = ::forceResetNetwork,
-                    onOpenSystemVpnSettings = ::openSystemVpnSettings
+                    onOpenSystemVpnSettings = ::openSystemVpnSettings,
+                    onExportBackup = ::exportBackup,
+                    onImportBackup = ::importBackup
                 )
             }
         }
+        if (savedInstanceState == null) handleStartVpnIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleStartVpnIntent(intent)
+    }
+
+    private fun handleStartVpnIntent(intent: Intent?) {
+        if (intent?.action == ACTION_START_VPN && !TrafficVpnService.isRunning.value) {
+            ensureNotificationPermissionThenPrepareVpn()
+        }
+    }
+
+    private val exportBackupLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> uri?.let { viewModel.exportBackup(it, ::showMessage) } }
+
+    private val importBackupLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let { viewModel.importBackup(it, ::showMessage) } }
+
+    private fun exportBackup() {
+        val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+        exportBackupLauncher.launch("canli-ag-trafigi-yedek-$date.json")
+    }
+
+    private fun importBackup() {
+        // Bazı dosya yöneticileri .json'u "application/octet-stream" olarak bildirir; hepsini göster.
+        importBackupLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/plain", "*/*"))
+    }
+
+    private fun showMessage(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
     }
 
     private fun onToggleVpn() {

@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -27,9 +28,14 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -70,8 +76,32 @@ fun SettingsScreen(
     onAutoUpdateCheckChange: (Boolean) -> Unit,
     onCheckForUpdates: () -> Unit,
     onShowUpdatePrompt: () -> Unit,
+    autoStartVpn: Boolean,
+    onAutoStartVpnChange: (Boolean) -> Unit,
+    onExportBackup: () -> Unit,
+    onImportBackup: () -> Unit,
     onBack: () -> Unit
 ) {
+    var confirmRestore by remember { mutableStateOf(false) }
+    if (confirmRestore) {
+        AlertDialog(
+            onDismissRequest = { confirmRestore = false },
+            title = { Text("Yedekten geri yüklensin mi?", fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "Şu anki kurallarınız, profilleriniz, itibar listeleriniz ve ayarlarınız seçeceğiniz " +
+                        "yedektekilerle DEĞİŞTİRİLECEK. Trafik geçmişi etkilenmez."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmRestore = false
+                    onImportBackup()
+                }) { Text("Dosya seç") }
+            },
+            dismissButton = { TextButton(onClick = { confirmRestore = false }) { Text("Vazgeç") } }
+        )
+    }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -161,6 +191,24 @@ fun SettingsScreen(
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
+                        Text("Otomatik başlat", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            "Telefon açıldığında ve uygulama güncellendiğinde izleme kendiliğinden başlar. " +
+                                "VPN izninin daha önce bir kez verilmiş olması gerekir.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
+                    }
+                    Switch(checked = autoStartVpn, onCheckedChange = onAutoStartVpnChange)
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 24.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text("Bilinen DoH sunucularını engelle", style = MaterialTheme.typography.titleSmall)
                         Text(
                             "Google/Cloudflare/Quad9 gibi bilinen genel DoH (DNS-over-HTTPS) " +
@@ -173,6 +221,35 @@ fun SettingsScreen(
                         )
                     }
                     Switch(checked = blockKnownDoh, onCheckedChange = onBlockKnownDohChange)
+                }
+
+                Text(
+                    "Yedekleme",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(top = 28.dp, bottom = 4.dp)
+                )
+                Text(
+                    "Kurallar, profiller, itibar listeleri ve ayarlar tek bir dosyaya kaydedilir. " +
+                        "Uygulamayı kaldırmadan ya da telefon değiştirmeden önce yedek alın.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(bottom = 10.dp)
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        modifier = Modifier.weight(1f),
+                        shape = CardShapeSmall,
+                        onClick = onExportBackup
+                    ) {
+                        Text("Yedek al")
+                    }
+                    OutlinedButton(
+                        modifier = Modifier.weight(1f),
+                        shape = CardShapeSmall,
+                        onClick = { confirmRestore = true }
+                    ) {
+                        Text("Geri yükle")
+                    }
                 }
 
                 OutlinedButton(

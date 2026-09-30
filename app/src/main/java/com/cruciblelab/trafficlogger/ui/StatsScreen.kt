@@ -1,6 +1,7 @@
 package com.cruciblelab.trafficlogger.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -64,6 +65,8 @@ import java.util.concurrent.TimeUnit
 
 private data class Stat(
     val label: String,
+    /** byApp grubu için paket adı - satıra dokununca uygulama grafiği açılır. */
+    val key: String? = null,
     val bytes: Long,
     val bytesUp: Long,
     val bytesDown: Long,
@@ -71,6 +74,12 @@ private data class Stat(
     /** byDomain grubu için: o domain'e ait örnek bir hedef IP - ASN fallback için kullanılır. */
     val sampleDestIp: String? = null
 )
+
+private enum class StatsPeriod(val label: String) {
+    TODAY("Bugün"),
+    WEEK("7 gün"),
+    ALL("Tümü")
+}
 
 private enum class TimelineGranularity(val label: String) {
     HOURLY("Saatlik"),
@@ -122,16 +131,27 @@ private fun buildTimelineBuckets(entries: List<TrafficEntry>, granularity: Timel
 fun StatsScreen(
     entries: List<TrafficEntry>,
     ipInfoMap: Map<String, IpInfoCache>,
+    onOpenApp: (String) -> Unit,
     onBack: () -> Unit
 ) {
-    val totalBytes = remember(entries) { entries.sumOf { it.bytesUp + it.bytesDown } }
-    val blockedCount = remember(entries) { entries.count { it.blocked } }
+    var period by remember { mutableStateOf(StatsPeriod.WEEK) }
+    val periodEntries = remember(entries, period) {
+        val since = when (period) {
+            StatsPeriod.TODAY -> startOfDayMillis()
+            StatsPeriod.WEEK -> startOfDayMillis() - TimeUnit.DAYS.toMillis(6)
+            StatsPeriod.ALL -> Long.MIN_VALUE
+        }
+        entries.filter { it.timestamp >= since }
+    }
+    val totalBytes = remember(periodEntries) { periodEntries.sumOf { it.bytesUp + it.bytesDown } }
+    val blockedCount = remember(periodEntries) { periodEntries.count { it.blocked } }
 
-    val byApp = remember(entries) {
-        entries.groupBy { it.appLabel }
-            .map { (label, list) ->
+    val byApp = remember(periodEntries) {
+        periodEntries.groupBy { it.appPackageName }
+            .map { (packageName, list) ->
                 Stat(
-                    label = label,
+                    label = list.first().appLabel,
+                    key = packageName,
                     bytes = list.sumOf { it.bytesUp + it.bytesDown },
                     bytesUp = list.sumOf { it.bytesUp },
                     bytesDown = list.sumOf { it.bytesDown },
@@ -141,8 +161,8 @@ fun StatsScreen(
             .sortedByDescending { it.bytes }
             .take(8)
     }
-    val byDomain = remember(entries) {
-        entries.groupBy { it.domain ?: it.destIp }
+    val byDomain = remember(periodEntries) {
+        periodEntries.groupBy { it.domain ?: it.destIp }
             .map { (label, list) ->
                 Stat(
                     label = label,
@@ -180,6 +200,22 @@ fun StatsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatsPeriod.entries.forEach { option ->
+                        FilterChip(
+                            selected = period == option,
+                            onClick = { period = option },
+                            label = { Text(option.label) },
+                            shape = RoundedCornerShape(50),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = Color.White
+                            )
+                        )
+                    }
+                }
+            }
+            item {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     SummaryCard(title = "Toplam veri", value = formatBytes(totalBytes), modifier = Modifier.weight(1f))
                     SummaryCard(
@@ -191,8 +227,15 @@ fun StatsScreen(
                     )
                 }
             }
-            item { SectionTitle("En çok veri kullanan uygulamalar") }
-            item { StatBarList(byApp) }
+            item {
+                SectionTitle("En çok veri kullanan uygulamalar")
+                Text(
+                    "Grafiğini görmek için bir uygulamaya dokunun.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextTertiary
+                )
+            }
+            item { StatBarList(byApp, onClick = { stat -> stat.key?.let(onOpenApp) }) }
             item { SectionTitle("En çok bağlanılan adresler") }
             item { StatBarList(byDomain, monospace = true, showCategoryBadge = true, ipInfoMap = ipInfoMap) }
             item {
@@ -332,7 +375,8 @@ private fun StatBarList(
     stats: List<Stat>,
     monospace: Boolean = false,
     showCategoryBadge: Boolean = false,
-    ipInfoMap: Map<String, IpInfoCache> = emptyMap()
+    ipInfoMap: Map<String, IpInfoCache> = emptyMap(),
+    onClick: ((Stat) -> Unit)? = null
 ) {
     if (stats.isEmpty()) {
         Text("Henüz veri yok", style = MaterialTheme.typography.bodySmall, color = TextTertiary)
@@ -366,6 +410,7 @@ private fun StatBarList(
                         ?.takeIf { !it.category.sharedInfrastructure }
                 } else null
 
+                Column(modifier = if (onClick != null) Modifier.clickable { onClick(stat) } else Modifier) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
@@ -437,6 +482,7 @@ private fun StatBarList(
                             .clip(RoundedCornerShape(50))
                             .background(color)
                     )
+                }
                 }
                 if (index != stats.lastIndex) Spacer(modifier = Modifier.height(12.dp))
             }

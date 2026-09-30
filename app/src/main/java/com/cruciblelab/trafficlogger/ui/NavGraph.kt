@@ -24,6 +24,8 @@ private object Routes {
     const val RULES = "rules"
     const val REPUTATION = "reputation"
     const val PROFILES = "profiles"
+    const val APP_USAGE = "app/{packageName}"
+    fun appUsage(packageName: String) = "app/${android.net.Uri.encode(packageName)}"
     fun detail(id: Long) = "detail/$id"
     fun list(onlyBlocked: Boolean = false) = "list?onlyBlocked=$onlyBlocked"
 }
@@ -33,7 +35,9 @@ fun TrafficNavGraph(
     viewModel: MainViewModel,
     onToggleVpn: () -> Unit,
     onForceResetNetwork: () -> Unit,
-    onOpenSystemVpnSettings: () -> Unit
+    onOpenSystemVpnSettings: () -> Unit,
+    onExportBackup: () -> Unit,
+    onImportBackup: () -> Unit
 ) {
     // Onboarding tamamlanana kadar DataStore'dan okuma bitmediği için null olabilir; bu sırada
     // NavHost'u hiç oluşturmuyoruz ki başlangıç rotası yanlış (örn. her zaman HOME) sabitlenmesin.
@@ -63,6 +67,8 @@ fun TrafficNavGraph(
     val updateState by viewModel.updateState.collectAsState()
     val updatePromptVisible by viewModel.updatePromptVisible.collectAsState()
     val autoUpdateCheck by viewModel.autoUpdateCheck.collectAsState()
+    val autoStartVpn by viewModel.autoStartVpn.collectAsState()
+    val liveSpeed by viewModel.liveSpeed.collectAsState()
 
     if (updatePromptVisible) {
         UpdateDialog(
@@ -93,6 +99,7 @@ fun TrafficNavGraph(
             HomeScreen(
                 summary = homeSummary,
                 vpnRunning = vpnRunning,
+                liveSpeed = liveSpeed,
                 onToggleVpn = onToggleVpn,
                 companyProtectionStates = companyProtectionStates,
                 onSetTrackingBlocked = viewModel::setTrackingBlocked,
@@ -134,7 +141,22 @@ fun TrafficNavGraph(
             )
         }
         composable(Routes.STATS) {
-            StatsScreen(entries = entries, ipInfoMap = ipInfoMap, onBack = { navController.popBackStack() })
+            StatsScreen(
+                entries = entries,
+                ipInfoMap = ipInfoMap,
+                onOpenApp = { packageName -> navController.navigate(Routes.appUsage(packageName)) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(
+            Routes.APP_USAGE,
+            arguments = listOf(navArgument("packageName") { type = NavType.StringType })
+        ) { backStackEntry ->
+            AppUsageScreen(
+                packageName = backStackEntry.arguments?.getString("packageName").orEmpty(),
+                entries = entries,
+                onBack = { navController.popBackStack() }
+            )
         }
         composable(Routes.RULES) {
             RulesScreen(
@@ -188,6 +210,7 @@ fun TrafficNavGraph(
                 history = history,
                 ipInfo = ipInfoMap[entry.destIp],
                 onRequestIpInfo = viewModel::requestIpInfo,
+                onOpenAppUsage = { packageName -> navController.navigate(Routes.appUsage(packageName)) },
                 onBack = { navController.popBackStack() }
             )
         }
@@ -208,6 +231,10 @@ fun TrafficNavGraph(
                 onAutoUpdateCheckChange = viewModel::setAutoUpdateCheck,
                 onCheckForUpdates = viewModel::checkForUpdates,
                 onShowUpdatePrompt = viewModel::showUpdatePrompt,
+                autoStartVpn = autoStartVpn,
+                onAutoStartVpnChange = viewModel::setAutoStartVpn,
+                onExportBackup = onExportBackup,
+                onImportBackup = onImportBackup,
                 onBack = { navController.popBackStack() }
             )
         }

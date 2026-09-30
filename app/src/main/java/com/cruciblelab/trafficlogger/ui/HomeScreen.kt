@@ -82,6 +82,7 @@ import androidx.compose.runtime.remember
 import com.cruciblelab.trafficlogger.util.AppCategoryClassifier
 import com.cruciblelab.trafficlogger.util.formatBytes
 import com.cruciblelab.trafficlogger.util.formatTimestamp
+import com.cruciblelab.trafficlogger.vpn.LiveSpeed
 
 /**
  * "Tek bakışta anlaşılır" ana ekran: teknik detaya girmeden bugünün özetini, en çok veri
@@ -94,6 +95,7 @@ import com.cruciblelab.trafficlogger.util.formatTimestamp
 fun HomeScreen(
     summary: HomeSummary,
     vpnRunning: Boolean,
+    liveSpeed: LiveSpeed,
     onToggleVpn: () -> Unit,
     companyProtectionStates: Map<String, CompanyProtectionState>,
     onSetTrackingBlocked: (TrackerCatalog.Company, Boolean) -> Unit,
@@ -131,7 +133,7 @@ fun HomeScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            item { VpnStatusCard(vpnRunning = vpnRunning, onToggleVpn = onToggleVpn) }
+            item { VpnStatusCard(vpnRunning = vpnRunning, liveSpeed = liveSpeed, onToggleVpn = onToggleVpn) }
             if (activeProfile != null) {
                 item { ActiveProfileBanner(profileName = activeProfile.name, onOpenProfiles = onOpenProfiles) }
             }
@@ -515,7 +517,7 @@ private fun SectionLabel(text: String) {
 }
 
 @Composable
-private fun VpnStatusCard(vpnRunning: Boolean, onToggleVpn: () -> Unit) {
+private fun VpnStatusCard(vpnRunning: Boolean, liveSpeed: LiveSpeed, onToggleVpn: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -546,6 +548,14 @@ private fun VpnStatusCard(vpnRunning: Boolean, onToggleVpn: () -> Unit) {
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
+                if (vpnRunning) {
+                    Text(
+                        "↑ ${formatBytes(liveSpeed.upBytesPerSec)}/s   ↓ ${formatBytes(liveSpeed.downBytesPerSec)}/s",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = AccentMint
+                    )
+                }
                 Text(
                     if (vpnRunning) "Dokun, durdur" else "Dokun, başlat",
                     style = MaterialTheme.typography.bodySmall,

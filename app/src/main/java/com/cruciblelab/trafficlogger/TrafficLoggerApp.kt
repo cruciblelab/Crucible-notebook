@@ -2,6 +2,7 @@ package com.cruciblelab.trafficlogger
 
 import android.app.Application
 import com.cruciblelab.trafficlogger.data.AppDatabase
+import com.cruciblelab.trafficlogger.data.BackupRepository
 import com.cruciblelab.trafficlogger.data.IpInfoRepository
 import com.cruciblelab.trafficlogger.data.IpResolutionQueue
 import com.cruciblelab.trafficlogger.data.PackageIntegrityRepository
@@ -33,6 +34,7 @@ class TrafficLoggerApp : Application() {
     }
     val profileRepository by lazy { ProfileRepository(database.profileDao(), settingsRepository) }
     val updateManager by lazy { UpdateManager(this) }
+    val backupRepository by lazy { BackupRepository(database, settingsRepository) }
 
     override fun onCreate() {
         super.onCreate()

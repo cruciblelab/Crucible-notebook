@@ -195,6 +195,7 @@ class UdpNat(private val context: RelayContext) {
             try {
                 s.send(DatagramPacket(payload, payload.size, remoteAddress, remotePort))
                 bytesUp += payload.size
+                context.totalBytesUp.addAndGet(payload.size.toLong())
             } catch (e: Exception) {
                 close()
                 return
@@ -216,6 +217,7 @@ class UdpNat(private val context: RelayContext) {
                     lastActivity = System.currentTimeMillis()
                     val responseBytes = packet.data.copyOfRange(0, packet.length)
                     bytesDown += responseBytes.size
+                    context.totalBytesDown.addAndGet(responseBytes.size.toLong())
 
                     if (remotePort == 53 || clientPort == 53) {
                         DnsMessage.parseAnswerAddresses(responseBytes).forEach { (name, ip) ->

@@ -36,6 +36,12 @@ class SettingsRepository(private val context: Context) {
 
         /** Açılışta GitHub'daki son sürümü denetle. Varsayılan açık; kapatılırsa sadece elle denetlenir. */
         val AUTO_UPDATE_CHECK_KEY = booleanPreferencesKey("auto_update_check")
+
+        /**
+         * Telefon açıldığında ve uygulama güncellendiğinde izlemeyi otomatik başlat (bkz.
+         * AutoStartReceiver). Varsayılan kapalı - kullanıcı bilerek açmalı.
+         */
+        val AUTO_START_VPN_KEY = booleanPreferencesKey("auto_start_vpn")
     }
 
     /** null = hiçbir kısıtlama profili aktif değil (normal, tam erişim modu). */
@@ -96,6 +102,16 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAutoUpdateCheck(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[AUTO_UPDATE_CHECK_KEY] = enabled
+        }
+    }
+
+    val autoStartVpn: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[AUTO_START_VPN_KEY] ?: false
+    }
+
+    suspend fun setAutoStartVpn(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[AUTO_START_VPN_KEY] = enabled
         }
     }
 }

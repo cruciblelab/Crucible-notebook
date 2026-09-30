@@ -12,6 +12,7 @@ import com.cruciblelab.trafficlogger.data.TrafficEntry
 import com.cruciblelab.trafficlogger.util.AppCategoryClassifier
 import com.cruciblelab.trafficlogger.util.startOfDayMillis
 import com.cruciblelab.trafficlogger.vpn.TrafficVpnService
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** Ana Sayfa'da "en çok tüketen 3 uygulama" satırlarından biri. */
 data class TopAppUsage(
@@ -309,6 +311,49 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun dismissUpdatePrompt() = app.updateManager.dismissPrompt()
     fun downloadUpdate() = app.updateManager.downloadAndInstall()
     fun installUpdate() = app.updateManager.install()
+
+    // ---- Yedekle / geri yükle (bkz. data/BackupRepository) ----
+
+    fun exportBackup(uri: android.net.Uri, onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            val message = runCatching {
+                withContext(Dispatchers.IO) {
+                    val output = app.contentResolver.openOutputStream(uri) ?: error("Dosya açılamadı.")
+                    app.backupRepository.export(output)
+                }
+            }.fold(
+                onSuccess = { "Yedek kaydedildi: ${it.rules} kural, ${it.profiles} profil, ${it.reputationSources} itibar listesi." },
+                onFailure = { "Yedek kaydedilemedi: ${it.message}" }
+            )
+            onResult(message)
+        }
+    }
+
+    fun importBackup(uri: android.net.Uri, onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            val message = runCatching {
+                withContext(Dispatchers.IO) {
+                    val input = app.contentResolver.openInputStream(uri) ?: error("Dosya açılamadı.")
+                    app.backupRepository.restore(input)
+                }
+            }.fold(
+                onSuccess = { "Geri yüklendi: ${it.rules} kural, ${it.profiles} profil, ${it.reputationSources} itibar listesi." },
+                onFailure = { it.message ?: "Geri yükleme başarısız oldu." }
+            )
+            onResult(message)
+        }
+    }
+
+    // ---- Açılışta / güncellemede otomatik başlatma (bkz. vpn/AutoStartReceiver) ----
+
+    val autoStartVpn: StateFlow<Boolean> = app.settingsRepository.autoStartVpn
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun setAutoStartVpn(enabled: Boolean) {
+        viewModelScope.launch { app.settingsRepository.setAutoStartVpn(enabled) }
+    }
+
+    val liveSpeed = TrafficVpnService.liveSpeed
 
     // ---- Ana Sayfa "Veri Toplama Kontrolleri" (basit switch + ileri düzey tam engel) ----
 

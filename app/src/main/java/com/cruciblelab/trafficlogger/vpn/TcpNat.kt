@@ -256,6 +256,7 @@ class TcpNat(private val context: RelayContext) {
             }
             clientNext = (clientNext + seg.payload.size) and SEQ_MASK
             bytesUp += seg.payload.size
+            context.totalBytesUp.addAndGet(seg.payload.size.toLong())
             sendAckOnly()
             persistThrottled()
         }
@@ -333,6 +334,7 @@ class TcpNat(private val context: RelayContext) {
             )
             ourSeq = (ourSeq + chunk.size) and SEQ_MASK
             bytesDown += chunk.size
+            context.totalBytesDown.addAndGet(chunk.size.toLong())
             persistThrottled()
         }
 

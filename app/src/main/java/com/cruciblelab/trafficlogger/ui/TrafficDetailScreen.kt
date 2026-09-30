@@ -66,6 +66,7 @@ fun TrafficDetailScreen(
     history: List<TrafficEntry>,
     ipInfo: IpInfoCache?,
     onRequestIpInfo: (String) -> Unit,
+    onOpenAppUsage: (String) -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -165,6 +166,13 @@ fun TrafficDetailScreen(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Uygulama Ayarları")
                     }
+                }
+                OutlinedButton(
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                    shape = CardShapeSmall,
+                    onClick = { onOpenAppUsage(entry.appPackageName) }
+                ) {
+                    Text("${entry.appLabel} - veri grafiği")
                 }
                 Spacer(modifier = Modifier.height(20.dp))
                 Text("Geçmiş", style = MaterialTheme.typography.titleSmall)

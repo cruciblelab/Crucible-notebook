@@ -28,4 +28,14 @@ interface BlockRuleDao {
     /** Bir tracker kategorisini kapatırken (izin ver) o domain'e ait kuralı kaldırır. */
     @Query("DELETE FROM block_rules WHERE appPackageName IS NULL AND matchValue = :domain")
     suspend fun deleteAppAgnostic(domain: String)
+
+    // --- Yedekleme (bkz. BackupRepository) ---
+    @Query("SELECT * FROM block_rules")
+    suspend fun getAll(): List<BlockRule>
+
+    @Query("DELETE FROM block_rules")
+    suspend fun deleteAll()
+
+    @Insert
+    suspend fun insertAll(rules: List<BlockRule>)
 }

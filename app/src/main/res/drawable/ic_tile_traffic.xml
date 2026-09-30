@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Yukarı ok (giden) -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M8,3 L3,8.5 L6.5,8.5 L6.5,21 L9.5,21 L9.5,8.5 L13,8.5 Z" />
+    <!-- Aşağı ok (gelen) -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M16,21 L21,15.5 L17.5,15.5 L17.5,3 L14.5,3 L14.5,15.5 L11,15.5 Z" />
+</vector>

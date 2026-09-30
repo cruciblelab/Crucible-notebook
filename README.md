@@ -43,7 +43,16 @@ Kotlin + Jetpack Compose ile yazılmıştır.
   kayıtlar arka planda periyodik olarak temizlenir.
 - Ayarlar ekranında günlük veri kullanım limiti belirlenebilir; limit
   aşıldığında bildirim gönderilir.
-- "İstatistikler" ekranında uygulama/hedef bazında trafik özetleri gösterilir.
+- "İstatistikler" ekranında uygulama/hedef bazında trafik özetleri gösterilir
+  (bugün / 7 gün / tümü). Bir uygulamaya dokununca o uygulamanın saatlik ve
+  günlük giden-gelen veri grafiği ile en çok konuştuğu adresler açılır.
+- İzleme açıkken bildirimde ve ana sayfada anlık ↑/↓ hız gösterilir (ekran
+  kapalıyken bildirim güncellenmez).
+- Bildirim panelindeki "Ağ İzleme" kutucuğu ile tek dokunuşla aç/kapa;
+  Ayarlar'dan "Otomatik başlat" açılırsa telefon açılınca ve uygulama
+  güncellenince izleme kendiliğinden başlar.
+- Ayarlar > Yedekleme: kurallar, profiller, itibar listeleri ve ayarlar tek bir
+  JSON dosyasına alınır / geri yüklenir (trafik geçmişi hariç).
 
 ## Engelleme kuralları
 
