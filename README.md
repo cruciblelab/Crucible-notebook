@@ -90,8 +90,24 @@ vermiyor) satırda sadece IP/domain gösterilmeye devam edilir.
 ./gradlew assembleDebug
 ```
 
-GitHub Actions üzerinde `.github/workflows/android-build.yml` her push/PR'da
-debug APK'yı derler ve artifact olarak yükler.
+GitHub Actions üzerinde `.github/workflows/android-build.yml` her PR'da imzalı
+APK'yı derleyip artifact olarak yükler; `main`'e her push'ta ayrıca bir GitHub
+Release (`v<appVersionBase>.<build no>`) yayınlar.
+
+## İmzalama ve güncellemeler
+
+- Android bir APK'yı ancak kurulu sürümle **aynı anahtarla** imzalanmışsa ve
+  `versionCode`'u daha büyükse güncelleme olarak kabul eder. `versionCode`
+  CI'daki build numarasıdır, her build bir öncekinden büyüktür.
+- Kalıcı imza anahtarı repoda **durmaz** (repo herkese açık). CI onu iki repo
+  secret'ından alır: `SIGNING_KEYSTORE_BASE64` (keystore dosyasının base64'ü) ve
+  `SIGNING_PASSWORD`. Secret'lar yoksa PR build'leri geçici anahtarla imzalanır
+  (uyarı verilir) ve `main`'de Release yayını reddedilir.
+- Anahtar dosyasını ve şifresini güvenli bir yerde sakla: kaybedilirse mevcut
+  kurulumlar bir daha güncellenemez.
+- Uygulama açılışta (Ayarlar'dan kapatılabilir) GitHub'daki son Release'i
+  denetler; yeni sürüm varsa notlarıyla birlikte gösterir, kullanıcı onaylarsa
+  APK'yı indirir ve sistem yükleyicisini açar.
 
 ## Geliştirici
 

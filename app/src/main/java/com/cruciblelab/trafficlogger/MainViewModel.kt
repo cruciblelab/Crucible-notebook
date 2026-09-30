@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -283,6 +284,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setDailyLimitMb(mb: Int) {
         viewModelScope.launch { app.settingsRepository.setDailyLimitMb(mb) }
     }
+
+    // ---- Uygulama içi güncelleme (bkz. update/UpdateManager) ----
+
+    val updateState = app.updateManager.state
+    val updatePromptVisible = app.updateManager.promptVisible
+    val appVersionName: String = app.updateManager.currentVersionName
+
+    val autoUpdateCheck: StateFlow<Boolean> = app.settingsRepository.autoUpdateCheck
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    init {
+        viewModelScope.launch {
+            if (app.settingsRepository.autoUpdateCheck.first()) app.updateManager.check(userInitiated = false)
+        }
+    }
+
+    fun setAutoUpdateCheck(enabled: Boolean) {
+        viewModelScope.launch { app.settingsRepository.setAutoUpdateCheck(enabled) }
+    }
+
+    fun checkForUpdates() = app.updateManager.check(userInitiated = true)
+    fun showUpdatePrompt() = app.updateManager.showPrompt()
+    fun dismissUpdatePrompt() = app.updateManager.dismissPrompt()
+    fun downloadUpdate() = app.updateManager.downloadAndInstall()
+    fun installUpdate() = app.updateManager.install()
 
     // ---- Ana Sayfa "Veri Toplama Kontrolleri" (basit switch + ileri düzey tam engel) ----
 

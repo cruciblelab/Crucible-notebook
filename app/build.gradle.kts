@@ -6,16 +6,29 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
-// Yayın imzalama bilgileri repoya GİRMEZ; makinende ayrı bir keystore.properties dosyasında
-// tutulur (bkz. app/keystore.properties.example). Dosya yoksa release build "debug" anahtarına
-// düşer - yani APK üretilir ama Play Store'a/güncelleme dağıtımına uygun DEĞİLDİR, sadece yerel
-// test için çalışır. Gerçek yayın için mutlaka kendi keystore.properties'ini oluştur.
+// Stabil imza: Android bir APK'yı ancak kurulu sürümle AYNI anahtarla imzalanmışsa güncelleme
+// olarak kabul eder. İmza bilgileri repoya GİRMEZ (repo herkese açık - anahtarı ele geçiren
+// bizim adımıza "güncelleme" yayınlayabilir). Kaynak sırası:
+//   1) CI: GitHub Secrets'tan gelen ortam değişkenleri (SIGNING_KEYSTORE_PATH, SIGNING_PASSWORD)
+//   2) Yerel: app/keystore.properties (bkz. app/keystore.properties.example)
+// İkisi de yoksa geçici debug anahtarına düşülür - APK çalışır ama kurulu sürümün üzerine
+// güncelleme olarak YÜKLENEMEZ.
 val keystorePropertiesFile = rootProject.file("app/keystore.properties")
-val keystoreProperties = Properties()
-val hasReleaseSigning = keystorePropertiesFile.exists()
-if (hasReleaseSigning) {
-    keystoreProperties.load(keystorePropertiesFile.inputStream())
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) keystorePropertiesFile.inputStream().use { load(it) }
 }
+
+fun signingValue(envName: String, propName: String): String? =
+    System.getenv(envName)?.takeIf { it.isNotBlank() }
+        ?: keystoreProperties.getProperty(propName)?.takeIf { it.isNotBlank() }
+
+val signingStoreFile = signingValue("SIGNING_KEYSTORE_PATH", "storeFile")
+val hasStableSigning = signingStoreFile != null
+
+// Android yalnızca versionCode'u DAHA BÜYÜK bir APK'yı güncelleme sayar. CI'da her çalıştırmanın
+// numarası bir öncekinden büyük olduğu için onu kullanıyoruz; yerel derlemeler 1'de kalır.
+val ciBuildNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
+val appVersionBase = providers.gradleProperty("appVersionBase").get()
 
 android {
     namespace = "com.cruciblelab.trafficlogger"
@@ -25,17 +38,17 @@ android {
         applicationId = "com.cruciblelab.trafficlogger"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = ciBuildNumber ?: 1
+        versionName = if (ciBuildNumber != null) "$appVersionBase.$ciBuildNumber" else "$appVersionBase.0-dev"
     }
 
     signingConfigs {
-        if (hasReleaseSigning) {
-            create("release") {
-                storeFile = file(keystoreProperties.getProperty("storeFile"))
-                storePassword = keystoreProperties.getProperty("storePassword")
-                keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keystoreProperties.getProperty("keyPassword")
+        if (hasStableSigning) {
+            create("stable") {
+                storeFile = file(signingStoreFile!!)
+                storePassword = signingValue("SIGNING_PASSWORD", "storePassword")
+                keyAlias = signingValue("SIGNING_KEY_ALIAS", "keyAlias") ?: "canliagtrafigi"
+                keyPassword = signingValue("SIGNING_PASSWORD", "keyPassword")
             }
         }
     }
@@ -44,14 +57,13 @@ android {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = if (hasReleaseSigning) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
-            }
+            signingConfig = signingConfigs.getByName(if (hasStableSigning) "stable" else "debug")
         }
         debug {
             isMinifyEnabled = false
+            // Yerelde keystore varsa debug da aynı anahtarla imzalanır; böylece yerel bir
+            // derleme, CI'dan kurulmuş sürümün üzerine (ya da tersi) güncelleme olarak yüklenebilir.
+            if (hasStableSigning) signingConfig = signingConfigs.getByName("stable")
         }
     }
 

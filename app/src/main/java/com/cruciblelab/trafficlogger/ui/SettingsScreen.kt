@@ -39,6 +39,7 @@ import com.cruciblelab.trafficlogger.R
 import com.cruciblelab.trafficlogger.ui.theme.TextSecondary
 import com.cruciblelab.trafficlogger.ui.theme.CardShapeMedium
 import com.cruciblelab.trafficlogger.ui.theme.CardShapeSmall
+import com.cruciblelab.trafficlogger.update.UpdateState
 
 private val RETENTION_OPTIONS = listOf(1, 7, 30)
 
@@ -63,6 +64,12 @@ fun SettingsScreen(
     onClearHistory: () -> Unit,
     onForceResetNetwork: () -> Unit,
     onOpenSystemVpnSettings: () -> Unit,
+    appVersionName: String,
+    updateState: UpdateState,
+    autoUpdateCheck: Boolean,
+    onAutoUpdateCheckChange: (Boolean) -> Unit,
+    onCheckForUpdates: () -> Unit,
+    onShowUpdatePrompt: () -> Unit,
     onBack: () -> Unit
 ) {
     Scaffold(
@@ -84,6 +91,15 @@ fun SettingsScreen(
             contentPadding = PaddingValues(16.dp)
         ) {
             item {
+                UpdateCard(
+                    appVersionName = appVersionName,
+                    state = updateState,
+                    autoUpdateCheck = autoUpdateCheck,
+                    onAutoUpdateCheckChange = onAutoUpdateCheckChange,
+                    onCheckForUpdates = onCheckForUpdates,
+                    onShowUpdatePrompt = onShowUpdatePrompt
+                )
+                Spacer(modifier = Modifier.height(12.dp))
                 InfoCard(stringResource(R.string.vpn_warning))
                 Spacer(modifier = Modifier.height(12.dp))
                 InfoCard(stringResource(R.string.https_disclaimer))
@@ -219,5 +235,82 @@ private fun InfoCard(text: String) {
             color = TextSecondary,
             modifier = Modifier.padding(16.dp)
         )
+    }
+}
+
+private fun updateStatusText(state: UpdateState): String = when (state) {
+    UpdateState.Idle -> "Güncellemeler henüz denetlenmedi."
+    UpdateState.Checking -> "Denetleniyor…"
+    UpdateState.UpToDate -> "En güncel sürümü kullanıyorsunuz."
+    is UpdateState.Available -> "Yeni sürüm mevcut: v${state.release.versionName}"
+    is UpdateState.Downloading ->
+        state.progress?.let { "İndiriliyor… %${(it * 100).toInt()}" } ?: "İndiriliyor…"
+    is UpdateState.NeedsInstallPermission -> "İndirildi - kurulum izni bekleniyor."
+    is UpdateState.ReadyToInstall -> "İndirildi - kuruluma hazır."
+    is UpdateState.Failed -> state.message
+}
+
+@Composable
+private fun UpdateCard(
+    appVersionName: String,
+    state: UpdateState,
+    autoUpdateCheck: Boolean,
+    onAutoUpdateCheckChange: (Boolean) -> Unit,
+    onCheckForUpdates: () -> Unit,
+    onShowUpdatePrompt: () -> Unit
+) {
+    // Bir sürüm bulunduysa (indiriliyor/kurulum bekliyor dahil) düğme diyaloğu geri açar.
+    val hasPendingRelease = when (state) {
+        is UpdateState.Available, is UpdateState.Downloading,
+        is UpdateState.NeedsInstallPermission, is UpdateState.ReadyToInstall -> true
+        is UpdateState.Failed -> state.release != null
+        else -> false
+    }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = CardShapeMedium,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Uygulama güncellemeleri", style = MaterialTheme.typography.titleSmall)
+            Text(
+                "Kurulu sürüm: v$appVersionName",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+            Text(
+                updateStatusText(state),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            Button(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                shape = CardShapeSmall,
+                enabled = state != UpdateState.Checking,
+                onClick = if (hasPendingRelease) onShowUpdatePrompt else onCheckForUpdates
+            ) {
+                Text(if (hasPendingRelease) "Güncellemeyi göster" else "Güncellemeleri denetle")
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Açılışta otomatik denetle", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Yalnızca GitHub'daki son sürüm bilgisi okunur; siz onaylamadan hiçbir şey indirilmez.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                }
+                Switch(checked = autoUpdateCheck, onCheckedChange = onAutoUpdateCheckChange)
+            }
+        }
     }
 }

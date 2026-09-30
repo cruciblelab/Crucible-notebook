@@ -7,6 +7,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Uygulama içi güncelleme: GitHub Releases'tan indirilen yeni sürümü sistem yükleyicisine
+         vermek için. Android yine de her kurulumda kullanıcıya onay ekranı gösterir. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!--
       Needed so PackageManager.getApplicationInfo()/getApplicationLabel() can resolve a
       human-readable name for ANY installed app's UID, not just ones visible to us under
@@ -52,6 +55,16 @@
                 <action android:name="android.net.VpnService" />
             </intent-filter>
         </service>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_file_paths" />
+        </provider>
 
     </application>
 </manifest>

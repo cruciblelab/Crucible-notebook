@@ -60,6 +60,19 @@ fun TrafficNavGraph(
     val activeProfile by viewModel.activeProfile.collectAsState()
     val showXiaomiSuggestion by viewModel.showXiaomiTrackerSuggestion.collectAsState()
     val installedApps by viewModel.installedApps.collectAsState()
+    val updateState by viewModel.updateState.collectAsState()
+    val updatePromptVisible by viewModel.updatePromptVisible.collectAsState()
+    val autoUpdateCheck by viewModel.autoUpdateCheck.collectAsState()
+
+    if (updatePromptVisible) {
+        UpdateDialog(
+            state = updateState,
+            currentVersionName = viewModel.appVersionName,
+            onUpdate = viewModel::downloadUpdate,
+            onInstall = viewModel::installUpdate,
+            onDismiss = viewModel::dismissUpdatePrompt
+        )
+    }
 
     NavHost(
         navController = navController,
@@ -189,6 +202,12 @@ fun TrafficNavGraph(
                 onClearHistory = viewModel::clearHistory,
                 onForceResetNetwork = onForceResetNetwork,
                 onOpenSystemVpnSettings = onOpenSystemVpnSettings,
+                appVersionName = viewModel.appVersionName,
+                updateState = updateState,
+                autoUpdateCheck = autoUpdateCheck,
+                onAutoUpdateCheckChange = viewModel::setAutoUpdateCheck,
+                onCheckForUpdates = viewModel::checkForUpdates,
+                onShowUpdatePrompt = viewModel::showUpdatePrompt,
                 onBack = { navController.popBackStack() }
             )
         }

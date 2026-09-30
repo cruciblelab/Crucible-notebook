@@ -33,6 +33,9 @@ class SettingsRepository(private val context: Context) {
          * her zaman kullanır, bu yüzden kullanıcı bilerek açmalı.
          */
         val BLOCK_KNOWN_DOH_KEY = booleanPreferencesKey("block_known_doh")
+
+        /** Açılışta GitHub'daki son sürümü denetle. Varsayılan açık; kapatılırsa sadece elle denetlenir. */
+        val AUTO_UPDATE_CHECK_KEY = booleanPreferencesKey("auto_update_check")
     }
 
     /** null = hiçbir kısıtlama profili aktif değil (normal, tam erişim modu). */
@@ -83,6 +86,16 @@ class SettingsRepository(private val context: Context) {
     suspend fun setBlockKnownDoh(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[BLOCK_KNOWN_DOH_KEY] = enabled
+        }
+    }
+
+    val autoUpdateCheck: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[AUTO_UPDATE_CHECK_KEY] ?: true
+    }
+
+    suspend fun setAutoUpdateCheck(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[AUTO_UPDATE_CHECK_KEY] = enabled
         }
     }
 }
